@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Growup · Nhịp hiểu của lớp</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Growup, về đầu bản mẫu"><span class="logo">G</span> Growup <span class="brand-note">cho VLearn</span></a>
+    <span class="prototype-label">CP2 · Bản mẫu mô phỏng</span>
+  </header>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">LỚP HỌC TRỰC TUYẾN</p>
+      <h2>Nhịp hiểu của lớp</h2>
+      <p class="muted">Phát hiện chỗ cần giảng lại trước khi chuyển phần.</p>
+      <nav aria-label="Các bước kiểm tra">
+        <button class="step active" data-step="prepare"><span>01</span> Chuẩn bị kiểm tra</button>
+        <button class="step" data-step="review"><span>02</span> Duyệt câu hỏi</button>
+        <button class="step" data-step="student"><span>03</span> Học viên trả lời</button>
+        <button class="step" data-step="report"><span>04</span> Xem mức hiểu</button>
+        <button class="step" data-step="decision"><span>05</span> Chọn bước tiếp theo</button>
+      </nav>
+      <div class="sidebar-foot"><span class="status-dot"></span> Nội dung thử: một phần bài học<br><small id="scope-summary">3 khái niệm · 3 câu hỏi · khoảng 3 phút</small></div>
+    </aside>
+    <main id="main" tabindex="-1">
+      <div class="notice"><strong>Bản mẫu CP2:</strong> dữ liệu lớp là giả lập; kết quả được dựng theo quy tắc minh họa, chưa gọi AI và chưa kết nối VLearn. Một cửa sổ dùng để chuyển vai giảng viên/học viên.</div>
+
+      <section id="prepare" class="screen">
+        <div class="page-heading"><div><p class="eyebrow">01 / CHUẨN BỊ</p><h1>Trước khi dạy tiếp,<br>kiểm tra lớp đã hiểu đến đâu.</h1><p class="muted">Một lượt kiểm tra ngắn sau phần học, để lựa chọn cách dạy tiếp có căn cứ.</p></div><span class="pill">Giảng viên</span></div>
+        <div class="two-columns">
+          <article class="card">
+            <p class="eyebrow">NGUỒN VÀ PHẠM VI KIỂM TRA</p><h2>Cách mô hình ngôn ngữ hoạt động</h2>
+            <div class="source-badge">Nguồn hiện tại: bộ tài liệu mẫu do nhóm tự soạn</div>
+            <p class="muted">Chọn một hoặc nhiều khái niệm từ các phần dưới đây. Mỗi khái niệm có một đoạn nguồn mẫu và một câu kiểm tra.</p>
+            <div id="concept-selection"></div>
+            <p class="field-note">Bản thật sẽ lấy slide hoặc bản chép lời của bài học được giảng viên chọn trên VLearn, kèm mã trang/đoạn. Bản CP2 chưa nhập tệp hoặc kết nối VLearn.</p>
+          </article>
+          <article class="card">
+            <p class="eyebrow">CẤU HÌNH LƯỢT THỬ</p><h2>Kiểm tra cuối phần</h2>
+            <label for="class-size">Số học viên trong lớp mẫu</label><input id="class-size" type="number" min="1" max="300" value="16">
+            <label for="scenario">Dữ liệu phản hồi minh họa</label><select id="scenario"><option value="normal">Có 11 phản hồi giả lập + câu trả lời thử của bạn</option><option value="sparse">Chỉ có câu trả lời thử của bạn</option><option value="empty">Chưa có phản hồi nào</option></select>
+            <p class="field-note">Mốc tham gia minh họa: cần ít nhất 50% lớp trả lời mới đưa ra nhận xét chung. Đây là cấu hình bản mẫu, chưa phải chuẩn đạt của dự án.</p>
+            <div class="callout"><strong id="selection-count">Đã chọn 3 khái niệm</strong><p>Bước tiếp theo: xem câu hỏi, đáp án và căn cứ; sửa nếu cần, rồi duyệt từng câu trước khi mở kiểm tra.</p></div>
+            <button id="create-check" class="primary full">Tạo bản nháp và duyệt câu hỏi →</button>
+          </article>
+        </div>
+      </section>
+
+      <section id="review" class="screen" hidden>
+        <div class="page-heading"><div><p class="eyebrow">02 / GIẢNG VIÊN DUYỆT</p><h1>Xem câu hỏi trước khi gửi cho lớp.</h1><p class="muted">Kiểm tra câu hỏi, đáp án và đoạn nguồn. Bạn có thể sửa bản nháp rồi xác nhận từng câu.</p></div><span class="pill">Giảng viên</span></div>
+        <div id="review-locked" class="card" hidden><h2>Chưa tạo bản nháp</h2><p>Chọn phạm vi kiểm tra rồi tạo bản nháp trước.</p><button class="primary" data-go="prepare">Chọn phần kiến thức</button></div>
+        <div id="review-body">
+          <div class="notice">Câu hỏi CP2 được lấy từ bộ mẫu có sẵn, chưa do AI sinh. Đáp án và căn cứ chỉ xuất hiện ở màn hình giảng viên. Sửa câu hỏi hoặc đổi phạm vi sẽ đóng lượt thử hiện tại và yêu cầu duyệt lại.</div>
+          <form id="question-review-form"><div id="question-drafts"></div></form>
+          <div class="review-launch card"><div><strong id="approval-status" role="status">Chưa duyệt câu nào</strong><p class="field-note" id="approval-note">Duyệt tất cả các câu đã chọn để mở kiểm tra.</p></div><button id="open-check" class="primary" disabled>Mở kiểm tra đã duyệt →</button></div>
+          <div class="actions"><button class="secondary" data-go="prepare">← Đổi phạm vi kiểm tra</button></div>
+        </div>
+      </section>
+
+      <section id="student" class="screen" hidden>
+        <div class="page-heading"><div><p class="eyebrow">03 / HỌC VIÊN</p><h1>Thử giải thích điều vừa học.</h1><p class="muted">Mục đích là giúp giảng viên biết chỗ cần giải thích thêm. Đây không phải bài thi.</p></div><span class="pill">Học viên thử</span></div>
+        <div id="student-locked" class="card" hidden><h2>Chưa mở lượt kiểm tra đã duyệt</h2><p>Giảng viên cần duyệt đầy đủ câu hỏi và mở kiểm tra trước khi học viên trả lời.</p><button class="primary" data-go="review">Về bước duyệt câu hỏi</button></div>
+        <form id="answer-form" class="card quiz">
+          <div id="student-questions"></div>
+          <div id="answer-status" role="status" class="callout" hidden></div>
+          <div class="actions"><button type="button" id="fill-example" class="secondary">Điền ví dụ có một hiểu lầm</button><button type="submit" class="primary" id="submit-answer">Gửi câu trả lời →</button></div>
+        </form>
+      </section>
+
+      <section id="report" class="screen" hidden>
+        <div class="page-heading"><div><p class="eyebrow">04 / TỔNG HỢP</p><h1>Lớp đang theo kịp ở đâu?</h1><p class="muted">Xem theo từng khái niệm và mở bằng chứng trước khi quyết định.</p></div><span class="pill">Giảng viên</span></div>
+        <div class="report-toolbar"><label for="report-scenario">Tình huống minh họa</label><select id="report-scenario"><option value="normal">11 phản hồi giả lập + câu trả lời thử</option><option value="sparse">Ít người trả lời</option><option value="empty">Chưa có phản hồi</option><option value="failure">Lỗi tổng hợp</option></select><button id="refresh-report" class="secondary">Tổng hợp lại</button></div>
+        <div id="report-content" aria-live="polite"></div>
+        <div class="actions"><button class="secondary" data-go="student">Sửa câu trả lời thử</button><button id="to-decision" class="primary">Chọn cách dạy tiếp →</button></div>
+      </section>
+
+      <section id="decision" class="screen" hidden>
+        <div class="page-heading"><div><p class="eyebrow">05 / QUYẾT ĐỊNH</p><h1>Giảng viên chọn bước tiếp theo.</h1><p class="muted">Kết quả kiểm tra là thông tin hỗ trợ. Quyết định giảng dạy thuộc về giảng viên.</p></div><span class="pill">Giảng viên</span></div>
+        <article class="card"><div id="decision-context" class="callout"></div><form id="decision-form"><fieldset><legend>Cách xử lý trong buổi</legend><label class="answer"><input type="radio" name="decision" value="Giảng lại khái niệm còn hiểu lầm và kiểm tra lại" required> Giảng lại khái niệm còn hiểu lầm và kiểm tra lại.</label><label class="answer"><input type="radio" name="decision" value="Thêm một ví dụ và kiểm tra lại"> Thêm một ví dụ và kiểm tra lại.</label><label class="answer"><input type="radio" name="decision" value="Mời thêm học viên trả lời trước khi kết luận"> Mời thêm học viên trả lời trước khi kết luận.</label><label class="answer"><input type="radio" name="decision" value="Tiếp tục phần tiếp theo"> Tiếp tục phần tiếp theo.</label></fieldset><label for="teacher-note">Ghi chú của giảng viên (không bắt buộc)</label><textarea id="teacher-note" rows="2" maxlength="600" placeholder="Ví dụ: giải thích lại vì sao token không luôn bằng một từ…"></textarea><button class="primary" type="submit">Lưu quyết định</button></form><div id="decision-saved" class="callout success" role="status" hidden></div></article>
+        <div class="actions"><button class="secondary" data-go="report">← Xem lại bằng chứng</button><button id="reset-demo" class="secondary">Bắt đầu lượt thử mới</button></div>
+      </section>
+      <footer>Growup · Bản mẫu tính năng đề xuất cho VLearn · Chưa tích hợp nền tảng thật</footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

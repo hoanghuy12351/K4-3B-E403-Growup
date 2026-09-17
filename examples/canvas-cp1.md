@@ -2,17 +2,17 @@
 
 Canvas nộp ở CP1 theo scaffold `02-guide.md` §1.5 — mỗi dòng một ý, cả canvas vừa một trang. Dưới đây là 3 bài của các nhóm khoá trước (đã ẩn tên, chỉnh nhẹ), kèm ghi chú vì sao đạt. Số liệu trong ví dụ viết dạng `XX/XXX` — nhóm bạn phải tự đếm trên `data/` của khoá này và ghi số thật.
 
-## Mẫu trống — copy vào `canvas.md` của repo nhóm
+## Canvas(bản mô tả ý tưởng) 7 dòng của nhóm · A2
 
 | # | Dòng | Nội dung |
 |---|---|---|
-| 1 | Track + đề | |
-| 2 | Job executor (ai · đang ở đâu · làm gì) | |
-| 3 | Pain một câu (ai – đang làm gì – vướng đâu – hậu quả) | |
-| 4 | 1–2 bằng chứng đầu (số + cách đếm + mã hội thoại/tin nhắn, hoặc khảo sát/phỏng vấn có số người) | |
-| 5 | Lát cắt MỘT CÂU (1 user · 1 việc · 1 quyết định AI · 1 kết quả) | |
-| 6 | AI tự làm đến đâu + 1 dòng lý do · ≥3 willing users ngoài nhóm | |
-| 7 | Phân công có tên | |
+| 1 | Track(hướng đề tài) + đề | A2 · Tính năng AI(trí tuệ nhân tạo) mới trên VLearn — kiểm tra mức hiểu của lớp sau một phần bài học. |
+| 2 | Job executor(người thực hiện công việc) | Giảng viên đang dạy trực tuyến trên VLearn, vừa hoàn thành một phần gồm ba khái niệm trọng tâm và cần biết lớp có theo kịp trước khi dạy tiếp. |
+| 3 | Pain(vấn đề) | Khi dạy trực tuyến, giảng viên khó biết lớp chưa hiểu ở đâu vì học viên ít chủ động hỏi; phần tiếp theo xây trên nền kiến thức chưa vững nhưng vấn đề chỉ được phát hiện khi chấm bài hoặc buổi học đã kết thúc. |
+| 4 | Bằng chứng đầu | Tài liệu hướng A ghi tutor(trợ lý học tập) chỉ hỏi ngược 28/13.494 lượt — tín hiệu gián tiếp về việc ít kiểm tra hiểu; **cần kiểm lại số đếm, cách đếm và bổ sung mã hội thoại minh họa**. Phỏng vấn 4 lab coach(người hướng dẫn thực hành): 3/4 từng phát hiện lớp chưa hiểu sau khi đã chuyển phần; Coach 2 nói: “Nếu chỉ hỏi ‘mọi người hiểu chưa?’ thì thường không ai phản hồi.” |
+| 5 | Lát cắt một câu | Giảng viên vừa dạy xong một phần bài học trên VLearn · cần biết lớp chưa theo kịp ở đâu · AI phân tích câu trả lời qua ba câu kiểm tra ngắn để nhận diện hiểu lầm theo khái niệm · trả bảng tổng hợp có bằng chứng để giảng viên quyết định giảng lại hay tiếp tục. |
+| 6 | AI tự làm đến đâu + lý do · Willing users(người đồng ý dùng thử) ngoài nhóm | AI tự phân tích câu trả lời theo tài liệu, gom hiểu lầm và tổng hợp mức hiểu của những học viên đã trả lời; giảng viên duyệt câu kiểm tra và quyết định cách dạy tiếp. Khi phản hồi ít hoặc mơ hồ, báo “chưa đủ dữ liệu”, không kết luận cả lớp đã hiểu, vì đánh giá sai có thể khiến giảng viên bỏ qua kiến thức lớp chưa nắm vững. Người đồng ý dùng thử ngoài nhóm: Nguyễn Xuân Trường — học viên khóa 4; Trần Cao Quốc Định; Nguyễn Thái Lương. |
+| 7 | Phân công có tên | Võ Huy Hoàng — phỏng vấn, bằng chứng và đặc tả · Bùi Quang Vinh — câu kiểm tra, tiêu chí đánh giá và bộ ca thử · Lê Trọng Khánh — xử lý AI và kết nối hệ thống · Đỗ Hoàng Quân — giao diện, dùng thử và trình diễn. |
 
 Bằng chứng ở dòng 4 có thể đến từ **data pack** (đếm được, có mã trích dẫn) hoặc **khảo sát / phỏng vấn** (ghi số người hỏi, số người gặp vấn đề, quote ngắn) — tốt nhất là cả hai.
 
