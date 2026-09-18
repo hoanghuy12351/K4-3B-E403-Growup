@@ -1,20 +1,22 @@
 """Teacher-only endpoints for the fixed, section-scoped checkpoint demo."""
 
 import logging
+from pathlib import Path
 
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 
 from app.ai.services.demo_checkpoint_catalog import DemoCheckpointCatalogError, get_demo_section, load_demo_catalog
-from app.ai.config import AISettings
+from app.ai.config import AISettings, find_repository_root
 from app.ai.llm.errors import LLMAuthenticationError, LLMConfigurationError, LLMMalformedResponseError, LLMProviderError, LLMRateLimitError, LLMTimeoutError, LLMValidationError
 from app.ai.services.demo_slide_analysis import generate_preanalyzed_checkpoints, get_preanalyzed_section
 from app.diagnostic.service import SessionValidationError
 from app.models.user import Teacher
 from app.routers.auth import current_teacher
 from app.routers.diagnostic_sessions import service
-from app.schemas.teaching_agent import GenerateAgentCheckpointRequest, GenerateDemoCheckpointRequest
+from app.schemas.teaching_agent import CreateLiveSessionRequest, GenerateAgentCheckpointRequest, GenerateDemoCheckpointRequest
 
 
 router = APIRouter(prefix="/teaching-agent", tags=["Teaching agent"])
@@ -31,6 +33,23 @@ def _configured_model(settings: AISettings | None) -> str:
     if settings is None:
         return "unknown"
     return str(getattr(settings, f"{settings.provider}_model", None) or "unknown")
+
+
+@router.get("/live-lesson/slides")
+def get_live_lesson_slides(teacher: Annotated[Teacher, Depends(current_teacher)]) -> FileResponse:
+    """Stream the canonical slide deck for the lecturer's live presentation view."""
+    del teacher
+    try:
+        lesson = load_demo_catalog()["lesson"]
+        slide_file = lesson["slideFile"]
+        slide_path = (find_repository_root() / str(slide_file)).resolve()
+        data_root = (find_repository_root() / "data").resolve()
+        slide_path.relative_to(data_root)
+    except (DemoCheckpointCatalogError, KeyError, TypeError, ValueError):
+        raise _error(status.HTTP_503_SERVICE_UNAVAILABLE, "DEMO_SLIDES_UNAVAILABLE", "Live lesson slides are unavailable.") from None
+    if not slide_path.is_file():
+        raise _error(status.HTTP_503_SERVICE_UNAVAILABLE, "DEMO_SLIDES_UNAVAILABLE", "Live lesson slides are unavailable.")
+    return FileResponse(slide_path, media_type="application/pdf", filename="ai-llm-foundation.pdf", content_disposition_type="inline")
 
 
 @router.get("/demo")
@@ -50,6 +69,9 @@ def get_demo(teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str,
             {
                 "id": section["id"],
                 "title": section["title"],
+                "order": section["order"],
+                "slidePages": section["slidePages"],
+                "triggerSlide": max(section["slidePages"]),
                 "concepts": get_preanalyzed_section(section["id"])["concepts"],
                 "learningObjectives": get_preanalyzed_section(section["id"])["learningObjectives"],
                 "misconceptions": get_preanalyzed_section(section["id"])["misconceptions"],
@@ -57,6 +79,27 @@ def get_demo(teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str,
             for section in sections
         ],
         "mode": "preset_demo",
+    }
+
+
+@router.post("/live-session", status_code=status.HTTP_201_CREATED)
+def create_live_session(request: CreateLiveSessionRequest, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+    """Create a multi-checkpoint live lesson plan without generating questions yet."""
+    try:
+        session = service.create_live_session(
+            teacher_id=teacher.id,
+            lesson_id=request.lesson_id,
+            expected_students=request.expected_students,
+            selections=[item.model_dump(by_alias=True, exclude_none=True) for item in request.checkpoint_selections],
+        )
+    except SessionValidationError as error:
+        raise _error(status.HTTP_422_UNPROCESSABLE_ENTITY, "INVALID_LIVE_PLAN", str(error)) from None
+    return {
+        "sessionId": session.id,
+        "roomCode": session.room_code,
+        "status": session.status,
+        "lesson": {"id": session.lesson["id"], "title": session.lesson["title"]},
+        "checkpointPlans": session.checkpoint_plans,
     }
 
 
