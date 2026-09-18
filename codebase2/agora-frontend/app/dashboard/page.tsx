@@ -5,7 +5,7 @@ import AppLayout from "@/components/Layout/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 
 const quickSteps = [
-  ["📤", "Tải PPTX", "Đưa bài giảng lên để AI đọc nội dung và ghi chú."],
+  ["📤", "Chọn tài liệu", "Chọn bài giảng mẫu để AI phân tích và đề xuất checkpoint."],
   ["🧠", "Duyệt checkpoint", "Xem các phần lớn, khái niệm trọng tâm và câu hỏi AI đề xuất."],
   ["🚀", "Mở lớp", "Chia sẻ mã phòng rồi kiểm tra mức hiểu ngay trong lúc dạy."],
 ];
@@ -20,8 +20,8 @@ export default function DashboardPage() {
 
     <Card className="welcome-card"><div className="welcome-content">
       <div><p className="eyebrow">BẮT ĐẦU BÀI GIẢNG MỚI</p><h2>Biến slide thành checkpoint thông minh</h2>
-        <p>Tải file PPTX lên. AI sẽ chia các phần kiến thức lớn, chọn ba ý trọng tâm và soạn câu hỏi để bạn duyệt.</p></div>
-      <div className="dashboard-actions"><Button type="primary" size="large">📤 Tải PPTX lên</Button>
+        <p>Chọn tài liệu bài giảng. AI sẽ chia các phần kiến thức lớn, chọn ba ý trọng tâm và soạn câu hỏi để bạn duyệt.</p></div>
+      <div className="dashboard-actions"><Link href="/lessons/new"><Button type="primary" size="large">Chọn bài giảng</Button></Link>
         <Link href="/join"><Button size="large">Xem lối vào học viên</Button></Link></div>
     </div></Card>
 
@@ -34,12 +34,12 @@ export default function DashboardPage() {
     <div className="dashboard-two-column">
       <Card title="Bài giảng gần đây" className="recent-lesson-card">
         <div className="empty-lessons"><span>📚</span><h3>Chưa có bài giảng nào</h3>
-          <p>Tải file đầu tiên để AI bắt đầu phân tích nội dung.</p><Button type="primary">Tải bài giảng đầu tiên</Button></div>
+          <p>Chọn tài liệu đầu tiên để AI bắt đầu phân tích nội dung.</p><Link href="/lessons/new"><Button type="primary">Chọn bài giảng đầu tiên</Button></Link></div>
       </Card>
       <Card title="Mục tiêu thiết lập">
         <div className="setup-progress"><Progress percent={25} strokeColor="#58cc02" />
           <p><strong>1/4 bước hoàn thành</strong></p>
-          <ul><li className="done">✓ Tạo tài khoản giảng viên</li><li>○ Tải bài giảng PPTX</li><li>○ Duyệt checkpoint đầu tiên</li><li>○ Mở phòng học</li></ul>
+          <ul><li className="done">✓ Tạo tài khoản giảng viên</li><li>○ Chọn tài liệu bài giảng</li><li>○ Duyệt checkpoint đầu tiên</li><li>○ Mở phòng học</li></ul>
         </div>
       </Card>
     </div>

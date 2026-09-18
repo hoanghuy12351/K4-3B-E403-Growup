@@ -1,0 +1,166 @@
+{
+  "lesson": {
+    "id": "day1-ai-llm-foundation",
+    "title": "AI & LLM Foundation",
+    "slideFile": "data/vlearn-pack/slides/d1-slide-hackathon.pdf",
+    "transcriptFile": "data/vlearn-pack/transcript/transcript-04-clean.md",
+    "mode": "preset_demo"
+  },
+  "agentMessage": "Bạn muốn tạo checkpoint cho phần nào?",
+  "sections": [
+    {
+      "id": "ai-landscape",
+      "title": "Bức tranh AI & các tầng của AI",
+      "order": 1,
+      "slidePages": [
+        3,
+        4
+      ],
+      "transcriptRefs": [
+        "T04-015"
+      ],
+      "checkpointId": "Q-DEMO-AI-LANDSCAPE"
+    },
+    {
+      "id": "transformer-breakthrough",
+      "title": "Lịch sử AI & bước ngoặt Transformer",
+      "order": 2,
+      "slidePages": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "transcriptRefs": [
+        "T04-038",
+        "T04-039",
+        "T04-040",
+        "T04-041"
+      ],
+      "checkpointId": "Q-DEMO-TRANSFORMER"
+    },
+    {
+      "id": "llm-mechanics",
+      "title": "Bên trong LLM: token, dự đoán và context",
+      "order": 3,
+      "slidePages": [
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "transcriptRefs": [
+        "T04-046",
+        "T04-047",
+        "T04-048",
+        "T04-049",
+        "T04-050",
+        "T04-051",
+        "T04-052"
+      ],
+      "checkpointId": "Q-DEMO-LLM-MECHANICS"
+    },
+    {
+      "id": "attention-context",
+      "title": "Attention & cách quản lý context",
+      "order": 4,
+      "slidePages": [
+        15,
+        16
+      ],
+      "transcriptRefs": [
+        "T04-053",
+        "T04-054",
+        "T04-055",
+        "T04-056",
+        "T04-057"
+      ],
+      "checkpointId": "Q-DEMO-ATTENTION"
+    },
+    {
+      "id": "training-limitations",
+      "title": "Huấn luyện LLM, RLHF & giới hạn",
+      "order": 5,
+      "slidePages": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "transcriptRefs": [
+        "T04-058",
+        "T04-059",
+        "T04-060",
+        "T04-061",
+        "T04-062",
+        "T04-063",
+        "T04-064",
+        "T04-065",
+        "T04-066",
+        "T04-067",
+        "T04-068",
+        "T04-070",
+        "T04-071",
+        "T04-072"
+      ],
+      "checkpointId": "Q-DEMO-TRAINING"
+    },
+    {
+      "id": "llm-to-agent",
+      "title": "Từ LLM đến AI Agent",
+      "order": 6,
+      "slidePages": [
+        23,
+        24
+      ],
+      "transcriptRefs": [
+        "T04-073",
+        "T04-074",
+        "T04-075"
+      ],
+      "checkpointId": "Q-DEMO-AGENT"
+    },
+    {
+      "id": "model-selection-cost",
+      "title": "Chọn model & chi phí token",
+      "order": 7,
+      "slidePages": [
+        25,
+        26,
+        27
+      ],
+      "transcriptRefs": [
+        "T04-076",
+        "T04-077",
+        "T04-078",
+        "T04-079",
+        "T04-080",
+        "T04-081",
+        "T04-082",
+        "T04-083",
+        "T04-084",
+        "T04-085"
+      ],
+      "checkpointId": "Q-DEMO-MODEL-SELECTION"
+    },
+    {
+      "id": "api-prompt-basics",
+      "title": "Gọi API & cấu trúc prompt",
+      "order": 8,
+      "slidePages": [
+        28,
+        29
+      ],
+      "transcriptRefs": [
+        "T04-087",
+        "T04-088",
+        "T04-089"
+      ],
+      "checkpointId": "Q-DEMO-API-PROMPT"
+    }
+  ]
+}

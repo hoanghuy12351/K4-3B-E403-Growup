@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LLM diagnostic result",
+  "description": "Snapshot of the Pydantic LLMDiagnosticResult contract. The Pydantic model is the runtime source of truth.",
+  "type": "object",
+  "required": ["topic", "concepts", "learningObjective", "misconceptions", "question"],
+  "properties": {
+    "topic": {"type": "string", "minLength": 1},
+    "concepts": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "learningObjective": {"type": "string", "minLength": 1},
+    "misconceptions": {"type": "array", "items": {"type": "object", "required": ["id", "concept", "statement", "evidenceTurnIds"]}},
+    "question": {"type": "object", "required": ["id", "topic", "concept", "question", "learningObjective", "source", "options"]}
+  }
+}

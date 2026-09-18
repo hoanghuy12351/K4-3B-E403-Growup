@@ -2,5 +2,6 @@
 
 from app.models.session import LoginSession
 from app.models.user import Teacher
+from app.models.material import LessonMaterial
 
-__all__ = ["LoginSession", "Teacher"]
+__all__ = ["LoginSession", "Teacher", "LessonMaterial"]

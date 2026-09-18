@@ -1,0 +1,718 @@
+{
+  "ai-landscape": {
+    "sectionId": "ai-landscape",
+    "concepts": [
+      "AI hierarchy",
+      "LLM",
+      "Generative AI",
+      "Agentic AI"
+    ],
+    "learningObjectives": [
+      "Phân biệt vị trí của LLM trong bức tranh AI và nhận biết khác biệt giữa Generative AI và Agentic AI."
+    ],
+    "misconceptions": [
+      {
+        "id": "m-ai-01",
+        "statement": "LLM đồng nghĩa với toàn bộ AI."
+      },
+      {
+        "id": "m-ai-02",
+        "statement": "Generative AI chỉ dùng để phân loại và dự đoán nhãn."
+      },
+      {
+        "id": "m-ai-03",
+        "statement": "Agentic AI chỉ sinh nội dung mới mà không sử dụng công cụ hay hành động."
+      }
+    ],
+    "question": {
+      "id": "Q-DEMO-AI-LANDSCAPE",
+      "topic": "AI & LLM Foundation",
+      "concept": "Vị trí của LLM trong hệ sinh thái AI",
+      "question": "Nhận định nào mô tả đúng nhất vị trí của LLM trong bức tranh AI được trình bày?",
+      "learningObjective": "Phân biệt LLM với khái niệm AI rộng hơn.",
+      "source": [
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:3"
+        },
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:4"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-015"
+        }
+      ],
+      "options": [
+        {
+          "id": "A",
+          "text": "LLM là mô hình nền chuyên về ngôn ngữ nằm trong bức tranh AI rộng hơn; nó không đại diện cho toàn bộ AI.",
+          "correct": true
+        },
+        {
+          "id": "B",
+          "text": "LLM và AI là hai cách gọi hoàn toàn đồng nghĩa.",
+          "correct": false,
+          "misconceptionId": "m-ai-01"
+        },
+        {
+          "id": "C",
+          "text": "LLM chỉ thuộc nhóm Discriminative AI vì nhiệm vụ chính là dự đoán nhãn.",
+          "correct": false,
+          "misconceptionId": "m-ai-02"
+        },
+        {
+          "id": "D",
+          "text": "LLM chỉ được dùng khi hệ thống có thể tự hành động như một Agent.",
+          "correct": false,
+          "misconceptionId": "m-ai-03"
+        }
+      ]
+    },
+    "generation": {
+      "mode": "preset_demo",
+      "provider": null,
+      "model": null,
+      "latencyMs": 0,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "retryCount": 0,
+      "usage": null
+    }
+  },
+  "transformer-breakthrough": {
+    "sectionId": "transformer-breakthrough",
+    "concepts": [
+      "Transformer",
+      "Attention",
+      "LLM history"
+    ],
+    "learningObjectives": [
+      "Giải thích vì sao Transformer là bước ngoặt cho các mô hình ngôn ngữ hiện đại."
+    ],
+    "misconceptions": [
+      {
+        "id": "m-transformer-01",
+        "statement": "Transformer vẫn bắt buộc xử lý chuỗi hoàn toàn tuần tự như các kiến trúc trước đó."
+      },
+      {
+        "id": "m-transformer-02",
+        "statement": "Bước ngoặt của Transformer chủ yếu là lưu toàn bộ dữ liệu huấn luyện trong prompt."
+      },
+      {
+        "id": "m-transformer-03",
+        "statement": "Transformer chỉ có ý nghĩa đối với bài toán nhận diện ảnh."
+      }
+    ],
+    "question": {
+      "id": "Q-DEMO-TRANSFORMER",
+      "topic": "AI & LLM Foundation",
+      "concept": "Transformer",
+      "question": "Theo bài giảng, điểm nào khiến Transformer trở thành bước ngoặt quan trọng cho làn sóng LLM?",
+      "learningObjective": "Nhận biết vai trò của attention trong Transformer.",
+      "source": [
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:8"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-038"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-039"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-040"
+        }
+      ],
+      "options": [
+        {
+          "id": "A",
+          "text": "Transformer dùng attention để các token có thể xét mức liên quan với nhiều token khác trong ngữ cảnh, thay vì chỉ xử lý hoàn toàn tuần tự.",
+          "correct": true
+        },
+        {
+          "id": "B",
+          "text": "Transformer vẫn xử lý từng token tuần tự và không cho các token nhìn sang nhau.",
+          "correct": false,
+          "misconceptionId": "m-transformer-01"
+        },
+        {
+          "id": "C",
+          "text": "Transformer hoạt động bằng cách đưa toàn bộ dữ liệu huấn luyện vào prompt ở mỗi lần gọi.",
+          "correct": false,
+          "misconceptionId": "m-transformer-02"
+        },
+        {
+          "id": "D",
+          "text": "Transformer được tạo ra chủ yếu để nhận diện ảnh và không liên quan đến mô hình ngôn ngữ.",
+          "correct": false,
+          "misconceptionId": "m-transformer-03"
+        }
+      ]
+    },
+    "generation": {
+      "mode": "preset_demo",
+      "provider": null,
+      "model": null,
+      "latencyMs": 0,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "retryCount": 0,
+      "usage": null
+    }
+  },
+  "llm-mechanics": {
+    "sectionId": "llm-mechanics",
+    "concepts": [
+      "next-token prediction",
+      "token",
+      "context",
+      "autoregressive generation"
+    ],
+    "learningObjectives": [
+      "Mô tả vòng lặp sinh văn bản của LLM và vai trò của token/context."
+    ],
+    "misconceptions": [
+      {
+        "id": "m-llm-01",
+        "statement": "LLM viết toàn bộ câu trả lời trong một lần mà không lặp dự đoán token."
+      },
+      {
+        "id": "m-llm-02",
+        "statement": "Token luôn tương ứng chính xác với một từ hoàn chỉnh."
+      },
+      {
+        "id": "m-llm-03",
+        "statement": "Context là bộ nhớ vô hạn của mô hình."
+      }
+    ],
+    "question": {
+      "id": "Q-DEMO-LLM-MECHANICS",
+      "topic": "AI & LLM Foundation",
+      "concept": "Autoregressive text generation",
+      "question": "Vòng lặp nào mô tả đúng cách LLM sinh văn bản theo bài giảng?",
+      "learningObjective": "Hiểu cơ chế predict → append → rerun.",
+      "source": [
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:11"
+        },
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:12"
+        },
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:13"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-047"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-048"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-049"
+        }
+      ],
+      "options": [
+        {
+          "id": "A",
+          "text": "Dự đoán token tiếp theo → nối token đó vào context → chạy lại để dự đoán token kế tiếp.",
+          "correct": true
+        },
+        {
+          "id": "B",
+          "text": "Sinh toàn bộ câu trả lời cùng lúc → tách thành token sau khi hoàn tất.",
+          "correct": false,
+          "misconceptionId": "m-llm-01"
+        },
+        {
+          "id": "C",
+          "text": "Đọc từng từ nguyên vẹn → tra một đáp án cố định trong dữ liệu huấn luyện.",
+          "correct": false,
+          "misconceptionId": "m-llm-02"
+        },
+        {
+          "id": "D",
+          "text": "Lưu toàn bộ lịch sử vô hạn → chỉ dự đoán một lần ở cuối cuộc hội thoại.",
+          "correct": false,
+          "misconceptionId": "m-llm-03"
+        }
+      ]
+    },
+    "generation": {
+      "mode": "preset_demo",
+      "provider": null,
+      "model": null,
+      "latencyMs": 0,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "retryCount": 0,
+      "usage": null
+    }
+  },
+  "attention-context": {
+    "sectionId": "attention-context",
+    "concepts": [
+      "attention",
+      "context management",
+      "context rot"
+    ],
+    "learningObjectives": [
+      "Giải thích vai trò của attention và vì sao cần giữ context liên quan, gọn."
+    ],
+    "misconceptions": [
+      {
+        "id": "m-attention-01",
+        "statement": "Attention có nghĩa là mô hình ghi nhớ vĩnh viễn toàn bộ lịch sử."
+      },
+      {
+        "id": "m-attention-02",
+        "statement": "Đưa càng nhiều context vào luôn luôn làm kết quả tốt hơn."
+      },
+      {
+        "id": "m-attention-03",
+        "statement": "Attention chỉ dùng để giảm số lượng token đầu vào."
+      }
+    ],
+    "question": {
+      "id": "Q-DEMO-ATTENTION",
+      "topic": "AI & LLM Foundation",
+      "concept": "Attention & Context",
+      "question": "Theo bài giảng, khi context chứa quá nhiều thông tin không liên quan, cách xử lý nào hợp lý nhất?",
+      "learningObjective": "Vận dụng nguyên tắc attention/context để giữ thông tin quan trọng nổi bật.",
+      "source": [
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:15"
+        },
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:16"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-051"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-052"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-053"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-057"
+        }
+      ],
+      "options": [
+        {
+          "id": "A",
+          "text": "Giữ context tập trung vào thông tin liên quan, đặt yêu cầu quan trọng rõ ràng và tóm tắt khi hội thoại quá dài.",
+          "correct": true
+        },
+        {
+          "id": "B",
+          "text": "Luôn thêm toàn bộ dữ liệu có thể tìm được vì context càng dài thì attention càng chính xác.",
+          "correct": false,
+          "misconceptionId": "m-attention-02"
+        },
+        {
+          "id": "C",
+          "text": "Chỉ cần tăng số token đầu vào; vị trí và độ liên quan của thông tin không quan trọng.",
+          "correct": false,
+          "misconceptionId": "m-attention-03"
+        },
+        {
+          "id": "D",
+          "text": "Không cần quản lý context vì attention giúp mô hình nhớ vĩnh viễn mọi nội dung trước đó.",
+          "correct": false,
+          "misconceptionId": "m-attention-01"
+        }
+      ]
+    },
+    "generation": {
+      "mode": "preset_demo",
+      "provider": null,
+      "model": null,
+      "latencyMs": 0,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "retryCount": 0,
+      "usage": null
+    }
+  },
+  "training-limitations": {
+    "sectionId": "training-limitations",
+    "concepts": [
+      "pre-training",
+      "SFT",
+      "RLHF",
+      "LLM limitations"
+    ],
+    "learningObjectives": [
+      "Phân biệt pre-training với RLHF và nhận biết giới hạn của mô hình ngôn ngữ."
+    ],
+    "misconceptions": [
+      {
+        "id": "m-training-01",
+        "statement": "RLHF là bước đưa toàn bộ kiến thức thế giới vào mô hình."
+      },
+      {
+        "id": "m-training-02",
+        "statement": "Sau khi huấn luyện, mô hình tự động biết mọi sự kiện mới xảy ra về sau."
+      },
+      {
+        "id": "m-training-03",
+        "statement": "LLM tối ưu trực tiếp cho sự thật tuyệt đối nên không thể trả lời nghe hợp lý nhưng sai."
+      }
+    ],
+    "question": {
+      "id": "Q-DEMO-TRAINING",
+      "topic": "AI & LLM Foundation",
+      "concept": "RLHF",
+      "question": "Vai trò phù hợp nhất của RLHF trong quá trình biến mô hình dự đoán token thành trợ lý hữu ích là gì?",
+      "learningObjective": "Hiểu RLHF dùng phản hồi/xếp hạng của con người để điều chỉnh hành vi trả lời.",
+      "source": [
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:18"
+        },
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:19"
+        },
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:20"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-059"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-060"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-067"
+        }
+      ],
+      "options": [
+        {
+          "id": "A",
+          "text": "Dùng phản hồi/xếp hạng của con người để định hướng mô hình tạo câu trả lời phù hợp và hữu ích hơn.",
+          "correct": true
+        },
+        {
+          "id": "B",
+          "text": "Nạp toàn bộ kiến thức mới của thế giới vào mô hình sau mỗi câu hỏi.",
+          "correct": false,
+          "misconceptionId": "m-training-01"
+        },
+        {
+          "id": "C",
+          "text": "Loại bỏ hoàn toàn knowledge cutoff để mô hình tự biết mọi sự kiện mới.",
+          "correct": false,
+          "misconceptionId": "m-training-02"
+        },
+        {
+          "id": "D",
+          "text": "Bảo đảm mọi câu trả lời của LLM đều đúng sự thật tuyệt đối.",
+          "correct": false,
+          "misconceptionId": "m-training-03"
+        }
+      ]
+    },
+    "generation": {
+      "mode": "preset_demo",
+      "provider": null,
+      "model": null,
+      "latencyMs": 0,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "retryCount": 0,
+      "usage": null
+    }
+  },
+  "llm-to-agent": {
+    "sectionId": "llm-to-agent",
+    "concepts": [
+      "LLM",
+      "AI Agent",
+      "tools",
+      "memory",
+      "action"
+    ],
+    "learningObjectives": [
+      "Phân biệt LLM trần và Agent có khả năng dùng công cụ/hành động."
+    ],
+    "misconceptions": [
+      {
+        "id": "m-agent-01",
+        "statement": "Agent chỉ là một tên khác của LLM, không có thêm thành phần nào."
+      },
+      {
+        "id": "m-agent-02",
+        "statement": "Agent không cần mục tiêu hoặc công cụ; chỉ cần prompt dài hơn."
+      },
+      {
+        "id": "m-agent-03",
+        "statement": "LLM trần tự động có quyền truy cập database, API và hành động ngoài đời."
+      }
+    ],
+    "question": {
+      "id": "Q-DEMO-AGENT",
+      "topic": "AI & LLM Foundation",
+      "concept": "LLM → Agent",
+      "question": "Điểm khác biệt cốt lõi giữa một LLM trần và một AI Agent theo bài giảng là gì?",
+      "learningObjective": "Nhận biết Agent là hệ thống bao quanh LLM bằng mục tiêu, reasoning, tools, action và memory/context.",
+      "source": [
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:23"
+        },
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:24"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-073"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-074"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-075"
+        }
+      ],
+      "options": [
+        {
+          "id": "A",
+          "text": "Agent đặt LLM trong một vòng lặp có mục tiêu và bổ sung công cụ, hành động cùng bộ nhớ/context để tương tác với hệ thống bên ngoài.",
+          "correct": true
+        },
+        {
+          "id": "B",
+          "text": "Agent chỉ là LLM được đổi tên; kiến trúc và khả năng hoàn toàn giống nhau.",
+          "correct": false,
+          "misconceptionId": "m-agent-01"
+        },
+        {
+          "id": "C",
+          "text": "Chỉ cần viết prompt dài hơn là một LLM tự động trở thành Agent mà không cần tools hay action.",
+          "correct": false,
+          "misconceptionId": "m-agent-02"
+        },
+        {
+          "id": "D",
+          "text": "LLM trần mặc định đã có quyền gọi API, database và thực hiện hành động bên ngoài.",
+          "correct": false,
+          "misconceptionId": "m-agent-03"
+        }
+      ]
+    },
+    "generation": {
+      "mode": "preset_demo",
+      "provider": null,
+      "model": null,
+      "latencyMs": 0,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "retryCount": 0,
+      "usage": null
+    }
+  },
+  "model-selection-cost": {
+    "sectionId": "model-selection-cost",
+    "concepts": [
+      "model selection",
+      "cost",
+      "evaluation",
+      "reasoning model"
+    ],
+    "learningObjectives": [
+      "Chọn model theo độ khó nhiệm vụ, chi phí và kết quả đánh giá thay vì chỉ theo tên model."
+    ],
+    "misconceptions": [
+      {
+        "id": "m-model-01",
+        "statement": "Mọi tác vụ đều nên dùng model mạnh và đắt nhất."
+      },
+      {
+        "id": "m-model-02",
+        "statement": "Model rẻ luôn đủ tốt cho mọi tác vụ nếu prompt đủ dài."
+      },
+      {
+        "id": "m-model-03",
+        "statement": "Leaderboard của nhà cung cấp đủ để quyết định model mà không cần evaluation trên bài toán thật."
+      }
+    ],
+    "question": {
+      "id": "Q-DEMO-MODEL-SELECTION",
+      "topic": "AI & LLM Foundation",
+      "concept": "Model selection",
+      "question": "Theo bài giảng, chiến lược chọn model nào hợp lý nhất?",
+      "learningObjective": "Cân bằng năng lực, độ khó nhiệm vụ, chi phí và evaluation.",
+      "source": [
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:25"
+        },
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:26"
+        },
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:27"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-084"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-085"
+        }
+      ],
+      "options": [
+        {
+          "id": "A",
+          "text": "Dùng model phù hợp với độ khó và chi phí của tác vụ, rồi đánh giá trên bài toán thực tế; việc đơn giản có thể dùng model rẻ hơn.",
+          "correct": true
+        },
+        {
+          "id": "B",
+          "text": "Luôn dùng model frontier đắt nhất cho mọi tác vụ để tránh phải đánh giá.",
+          "correct": false,
+          "misconceptionId": "m-model-01"
+        },
+        {
+          "id": "C",
+          "text": "Luôn dùng model rẻ nhất; prompt dài sẽ bù được mọi giới hạn năng lực.",
+          "correct": false,
+          "misconceptionId": "m-model-02"
+        },
+        {
+          "id": "D",
+          "text": "Chỉ cần chọn model đứng đầu leaderboard của nhà cung cấp, không cần thử trên dữ liệu của mình.",
+          "correct": false,
+          "misconceptionId": "m-model-03"
+        }
+      ]
+    },
+    "generation": {
+      "mode": "preset_demo",
+      "provider": null,
+      "model": null,
+      "latencyMs": 0,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "retryCount": 0,
+      "usage": null
+    }
+  },
+  "api-prompt-basics": {
+    "sectionId": "api-prompt-basics",
+    "concepts": [
+      "LLM API",
+      "system prompt",
+      "user input",
+      "context",
+      "token usage"
+    ],
+    "learningObjectives": [
+      "Nhận biết vai trò của system prompt và các thành phần cơ bản trong một request LLM."
+    ],
+    "misconceptions": [
+      {
+        "id": "m-api-01",
+        "statement": "System prompt chỉ là câu hỏi hiện tại của người dùng."
+      },
+      {
+        "id": "m-api-02",
+        "statement": "Lịch sử hội thoại không ảnh hưởng đến lượng token input ở các lần gọi sau."
+      },
+      {
+        "id": "m-api-03",
+        "statement": "System prompt và user input có vai trò hoàn toàn giống nhau."
+      }
+    ],
+    "question": {
+      "id": "Q-DEMO-API-PROMPT",
+      "topic": "AI & LLM Foundation",
+      "concept": "System prompt",
+      "question": "Trong cấu trúc một request LLM, system prompt chủ yếu dùng để làm gì?",
+      "learningObjective": "Phân biệt chỉ dẫn hệ thống với câu hỏi hiện tại của người dùng.",
+      "source": [
+        {
+          "type": "pdf_page",
+          "id": "slide:day1-ai-llm-foundation:28"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-087"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-088"
+        },
+        {
+          "type": "transcript",
+          "id": "T04-089"
+        }
+      ],
+      "options": [
+        {
+          "id": "A",
+          "text": "Đặt vai trò, hành vi và các quy tắc tổng quát mà mô hình cần tuân theo trong cuộc hội thoại/request.",
+          "correct": true
+        },
+        {
+          "id": "B",
+          "text": "Chỉ chứa câu hỏi hiện tại của người dùng và không có vai trò định hướng hành vi.",
+          "correct": false,
+          "misconceptionId": "m-api-01"
+        },
+        {
+          "id": "C",
+          "text": "Xóa toàn bộ lịch sử hội thoại để giảm token sau mỗi request.",
+          "correct": false,
+          "misconceptionId": "m-api-02"
+        },
+        {
+          "id": "D",
+          "text": "Hoàn toàn giống user input; hai phần có thể đổi chỗ mà không ảnh hưởng ý nghĩa.",
+          "correct": false,
+          "misconceptionId": "m-api-03"
+        }
+      ]
+    },
+    "generation": {
+      "mode": "preset_demo",
+      "provider": null,
+      "model": null,
+      "latencyMs": 0,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "retryCount": 0,
+      "usage": null
+    }
+  }
+}
