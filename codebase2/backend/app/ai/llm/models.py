@@ -48,9 +48,9 @@ class InterpretedTeacherRequest(StrictModel):
     """The bounded assessment requirements inferred from a lecturer prompt."""
 
     questionCount: int = Field(ge=1, le=10)
-    difficulty: str | None = None
-    style: str | None = None
-    focus: str | None = None
+    difficulty: str | None 
+    style: str | None
+    focus: str | None
 
 
 class LLMCheckpointBatchResult(StrictModel):
