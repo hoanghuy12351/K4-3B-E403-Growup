@@ -147,12 +147,20 @@ def close_checkpoint(session_id: str, question_id: str, teacher: Annotated[Teach
     """Hide an active checkpoint without ending the classroom."""
     try:
         service.require_teacher(session_id, teacher.id)
-        session = service.close_checkpoint(session_id, question_id)
+        session = service.close_checkpoint(session_id, question_id, settings=AISettings.from_env())
         return {"sessionId": session.id, "status": session.status, "activeQuestionId": session.active_question_id}
     except SessionNotFoundError:
         raise _not_found() from None
     except SessionValidationError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_RESPONSE", "message": str(error)}}) from None
+    except LLMConfigurationError:
+        raise _provider_unavailable() from None
+    except LLMAuthenticationError:
+        raise _provider_authentication_rejected() from None
+    except LLMTimeoutError:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail={"error": {"code": "AI_PROVIDER_TIMEOUT", "message": "AI mất quá lâu để phân tích kết quả lớp."}}) from None
+    except (LLMProviderError, LLMRateLimitError, LLMMalformedResponseError, LLMValidationError):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail={"error": {"code": "AI_ANALYSIS_ERROR", "message": "AI chưa thể phân tích kết quả lớp."}}) from None
 
 
 @router.post("/{session_id}/checkpoints/open-all")
@@ -173,10 +181,18 @@ def close_all_checkpoints(session_id: str, teacher: Annotated[Teacher, Depends(c
     """Hide all open checkpoints without discarding classroom evidence."""
     try:
         service.require_teacher(session_id, teacher.id)
-        session = service.close_all_checkpoints(session_id)
+        session = service.close_all_checkpoints(session_id, settings=AISettings.from_env())
         return {"sessionId": session.id, "status": session.status, "activeQuestionIds": session.active_question_ids}
     except SessionNotFoundError:
         raise _not_found() from None
+    except LLMConfigurationError:
+        raise _provider_unavailable() from None
+    except LLMAuthenticationError:
+        raise _provider_authentication_rejected() from None
+    except LLMTimeoutError:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail={"error": {"code": "AI_PROVIDER_TIMEOUT", "message": "AI mất quá lâu để phân tích kết quả lớp."}}) from None
+    except (LLMProviderError, LLMRateLimitError, LLMMalformedResponseError, LLMValidationError):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail={"error": {"code": "AI_ANALYSIS_ERROR", "message": "AI chưa thể phân tích kết quả lớp."}}) from None
 
 
 @router.post("/rooms/join", status_code=status.HTTP_201_CREATED)

@@ -8,6 +8,7 @@ from app.ai.config import AISettings
 from app.ai.services.lesson_diagnostic_service import generate_lesson_diagnostic
 from app.ai.services.material_ingestion import ingest_material, resolve_available_material
 from app.ai.services.answer_classification_service import classify_explanation
+from app.ai.services.class_response_analysis import analyze_aggregate_responses
 from app.ai.services.demo_checkpoint_catalog import build_demo_session_sections, get_demo_section, load_demo_catalog
 from app.domain.classification import ClassificationDecision, rubric_from_diagnostic
 
@@ -189,20 +190,26 @@ class DiagnosticSessionService:
         session.active_question_ids = question_ids
         return session
 
-    def close_checkpoint(self, session_id: str, question_id: str) -> DiagnosticSession:
-        """Hide the active checkpoint while leaving the classroom live."""
+    def close_checkpoint(self, session_id: str, question_id: str, settings: AISettings | None = None) -> DiagnosticSession:
+        """Hide a checkpoint and synthesize its aggregate class result once."""
         session = self.get_session(session_id)
         if question_id not in session.active_question_ids:
             raise SessionValidationError("The requested checkpoint is not open.")
         session.active_question_ids = [item for item in session.active_question_ids if item != question_id]
         session.active_question_id = session.active_question_ids[0] if session.active_question_ids else None
+        if settings is not None:
+            self.analyze_checkpoint(session_id, question_id, settings)
         return session
 
-    def close_all_checkpoints(self, session_id: str) -> DiagnosticSession:
+    def close_all_checkpoints(self, session_id: str, settings: AISettings | None = None) -> DiagnosticSession:
         """Hide every checkpoint while preserving all submitted responses."""
         session = self.get_session(session_id)
+        question_ids = list(session.active_question_ids)
         session.active_question_id = None
         session.active_question_ids = []
+        if settings is not None:
+            for question_id in question_ids:
+                self.analyze_checkpoint(session_id, question_id, settings)
         return session
 
     def submit_response(self, session_id: str, participant_id: str, question_id: str, section_id: str, option_id: str, explanation: str | None = None) -> StudentResponse:
@@ -238,7 +245,20 @@ class DiagnosticSessionService:
             correct=bool(selected_option.get("correct")),
             classification=classification,
         )
+        session.analyses.pop(question_id, None)
         return self.repository.save_response(response)
+
+    def analyze_checkpoint(self, session_id: str, question_id: str, settings: AISettings) -> dict[str, str]:
+        """Analyze only anonymous aggregates and cache the result until answers change."""
+        session = self.get_session(session_id)
+        section_data = next((item for item in session.sections if item["question"]["id"] == question_id), None)
+        if section_data is None:
+            raise SessionValidationError("The question does not belong to this diagnostic session.")
+        summary = build_class_summary(session)
+        section_result = next(item for item in summary["sectionResults"] if item["sectionId"] == section_data["section"]["id"])
+        analysis = analyze_aggregate_responses(question=section_data["question"], section_result=section_result, settings=settings)
+        session.analyses[question_id] = analysis
+        return analysis
 
     @staticmethod
     def _preset_classification(question_section: dict[str, Any], option: dict[str, Any]) -> ClassificationDecision:

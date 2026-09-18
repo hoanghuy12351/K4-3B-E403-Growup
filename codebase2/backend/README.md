@@ -93,6 +93,12 @@ Mật khẩu được băm bằng PBKDF2(cơ chế băm mật khẩu lặp nhi�
 cơ sở dữ liệu chỉ lưu giá trị băm của mã. Cookie được đặt `HttpOnly`.
 Không có API đăng ký tài khoản học viên; học viên sẽ tham gia lượt kiểm tra bằng mã.
 
+## Phân tích kết quả trắc nghiệm
+
+Hệ thống luôn tính đúng/sai, tỷ lệ và phân bố lựa chọn bằng mã nguồn; AI không được phép chấm lại các con số này. Khi giảng viên đóng checkpoint, AI chỉ nhận dữ liệu tổng hợp ẩn danh (câu hỏi, số lượng chọn từng phương án và hiểu lầm gắn với phương án sai) để viết nhận định sư phạm và gợi ý hành động.
+
+Kết quả AI được lưu theo checkpoint và trả trong `GET /api/diagnostic-sessions/{sessionId}/summary`. Nếu chưa đủ phản hồi, provider AI không được gọi; hệ thống chỉ trả cảnh báo “chưa đủ dữ liệu”. Trong chế độ `hybrid`, lỗi provider sẽ tự hạ về nhận định theo quy tắc.
+
 ## Kiểm thử
 
 ```powershell

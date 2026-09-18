@@ -96,6 +96,8 @@ export interface AgentGeneratedSession {
 
 export interface DiagnosticSummary {
   respondingStudents: number;
+  joinedStudents: number;
+  totalResponses: number;
   expectedStudents: number | null;
   recommendation: "reteach" | "clarify" | "continue" | "insufficient_data";
   reason: string;
@@ -104,6 +106,22 @@ export interface DiagnosticSummary {
     sectionId: string;
     totalResponses: number;
     correctRate: number;
+    recommendation?: "reteach" | "clarify" | "continue" | "insufficient_data";
+    reason?: string;
+    optionDistribution: Array<{
+      optionId: string;
+      text: string;
+      count: number;
+      ratio: number;
+      correct: boolean;
+      misconception?: string | null;
+    }>;
+    aiAnalysis: {
+      overview: string;
+      pattern: string;
+      suggestedAction: string;
+      generatedBy: "ai" | "rules";
+    } | null;
     dominantMisconception: { statement?: string } | null;
   }>;
 }
@@ -297,6 +315,11 @@ function buildMockSummary(session: MockSession): DiagnosticSummary {
       sectionId: section.id,
       totalResponses: responses.length,
       correctRate: responses.length ? correct / responses.length : 0,
+      optionDistribution: question?.options.map(option => {
+        const count = responses.filter(response => response.optionId === option.id).length;
+        return { optionId: option.id, text: option.text, count, ratio: responses.length ? count / responses.length : 0, correct: option.id === session.correctOptions[question.id] };
+      }) ?? [],
+      aiAnalysis: null,
       dominantMisconception: responses.length && correct / responses.length < 0.6 ? { statement: "Nhiều học viên chọn sai ở cùng một khái niệm." } : null,
     };
   });
@@ -311,7 +334,7 @@ function buildMockSummary(session: MockSession): DiagnosticSummary {
       : recommendation === "clarify"
         ? "Lớp có tín hiệu hiểu một phần, nên làm rõ thêm một vài ý."
         : "Phần lớn phản hồi đúng, có thể tiếp tục bài học.";
-  return { respondingStudents: participantIds.size, expectedStudents: session.expectedStudents, recommendation, reason, lecturerDecisionRequired: true, sectionResults };
+  return { respondingStudents: participantIds.size, joinedStudents: Object.keys(session.participants).length, totalResponses, expectedStudents: session.expectedStudents, recommendation, reason, lecturerDecisionRequired: true, sectionResults };
 }
 
 export async function joinRoom(roomCode: string, displayName: string): Promise<RoomJoinResult> {

@@ -56,6 +56,7 @@ export default function LiveTeachingPage() {
   const currentQuestionOpen = Boolean(currentQuestion && activeQuestionIds.includes(currentQuestion.id));
   const currentResult = currentSection ? summary?.sectionResults.find(item => item.sectionId === currentSection.id) : undefined;
   const correctRate = Math.round((currentResult?.correctRate ?? 0) * 100);
+  const activeRecommendation = currentResult?.recommendation ?? summary?.recommendation ?? "insufficient_data";
   const joinUrl = typeof window === "undefined" ? "/join" : `${window.location.origin}/join`;
 
   const answeredCount = useMemo(() => summary?.respondingStudents ?? 0, [summary]);
@@ -125,10 +126,24 @@ export default function LiveTeachingPage() {
 
         <Card className="live-response-card" title="Tín hiệu lớp học">
           {summary ? <>
-            <div className="response-number"><strong>{answeredCount}</strong><span>học viên đã phản hồi</span></div>
+            <div className="response-number"><strong>{currentResult?.totalResponses ?? 0}</strong><span>phản hồi cho câu này</span></div>
+            <p className="response-participation">{answeredCount}/{summary.expectedStudents ?? summary.joinedStudents} học viên đã trả lời · {summary.joinedStudents} đã vào phòng</p>
             <Progress percent={correctRate} strokeColor="#58cc02" trailColor="#e5e5e5" />
-            <Tag color={recommendationColor[summary.recommendation]}>{recommendationText[summary.recommendation]}</Tag>
-            <p className="muted">{summary.reason}</p>
+            <Tag color={recommendationColor[activeRecommendation]}>{recommendationText[activeRecommendation]}</Tag>
+            <p className="muted">{currentResult?.reason ?? summary.reason}</p>
+            {currentResult && currentResult.totalResponses > 0 && <div className="result-breakdown">
+              <strong>Phân bố đáp án</strong>
+              {currentResult.optionDistribution.map(option => <div className="answer-row" key={option.optionId}>
+                <span>{option.optionId}. {option.text}{option.correct ? " ✓" : ""}</span>
+                <em>{option.count} ({Math.round(option.ratio * 100)}%)</em>
+              </div>)}
+            </div>}
+            {currentResult?.aiAnalysis ? <div className="ai-class-analysis">
+              <div><Tag color={currentResult.aiAnalysis.generatedBy === "ai" ? "purple" : "default"}>{currentResult.aiAnalysis.generatedBy === "ai" ? "AI phân tích" : "Phân tích theo quy tắc"}</Tag></div>
+              <strong>{currentResult.aiAnalysis.overview}</strong>
+              <p>{currentResult.aiAnalysis.pattern}</p>
+              <p><b>Gợi ý:</b> {currentResult.aiAnalysis.suggestedAction}</p>
+            </div> : currentQuestionOpen && currentResult && currentResult.totalResponses > 0 ? <Alert type="info" showIcon title="Đóng câu hỏi để AI phân tích" description="AI chỉ nhận số liệu tổng hợp ẩn danh sau khi giảng viên chốt phản hồi." /> : null}
             <div className="teacher-decisions"><Button>Giảng lại ngắn</Button><Button type="primary">Tiếp tục</Button></div>
           </> : <p className="muted">Sau khi học viên trả lời, hệ thống sẽ hiện tỉ lệ đúng và gợi ý cho giảng viên.</p>}
         </Card>
