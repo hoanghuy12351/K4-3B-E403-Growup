@@ -60,4 +60,5 @@ class DiagnosticSession:
     current_slide: int = 1
     current_transcript_ref: str | None = None
     responses: list[StudentResponse] = field(default_factory=list)
+    analyses: dict[str, dict[str, Any]] = field(default_factory=dict)
     created_at: str = field(default_factory=utc_now)

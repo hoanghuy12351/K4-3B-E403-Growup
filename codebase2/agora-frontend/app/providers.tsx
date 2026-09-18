@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { App, ConfigProvider } from "antd";
 import viVN from "antd/locale/vi_VN";
@@ -26,7 +26,10 @@ export default function Providers({ children }: { children: ReactNode }) {
         }
       } catch {
         // Không có phiên hợp lệ: chuyển về đăng nhập.
-      } finally { if (active) store.getState().setReady(); }
+        if (active) store.getState().setUser(null);
+      } finally {
+        store.getState().setReady();
+      }
     }
     void restore();
     return () => { active = false; };

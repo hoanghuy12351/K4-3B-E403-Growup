@@ -47,12 +47,16 @@ export default function LiveTeachingPage() {
   const failedPlan = plans.find(plan => plan.status === "failed");
   const pendingPlan = plans.find(plan => plan.status === "planned");
   const currentPlan = openPlan || generatingPlan || previewPlan || failedPlan || pendingPlan;
+  const latestClosedPlan = [...plans].reverse().find(plan => plan.status === "closed");
+  const resultPlan = openPlan || latestClosedPlan || currentPlan;
   const previewQuestions = session?.checkpointPreviews?.find(item => item.planId === currentPlan?.id)?.questions || [];
   const joinUrl = typeof window === "undefined" ? "/join" : `${window.location.origin}/join`;
   const currentResult = useMemo(() => {
-    if (!currentPlan || !summary) return null;
-    return summary.sectionResults.find(item => session?.sections.some(section => section.id === item.sectionId && section.originalSectionId === currentPlan.sectionId)) || null;
-  }, [currentPlan, session?.sections, summary]);
+    if (!resultPlan || !summary) return null;
+    return summary.sectionResults.find(item => session?.sections.some(section => section.id === item.sectionId && section.originalSectionId === resultPlan.sectionId)) || null;
+  }, [resultPlan, session?.sections, summary]);
+  const correctRate = Math.round((currentResult?.correctRate ?? 0) * 100);
+  const activeRecommendation = currentResult?.recommendation ?? summary?.recommendation ?? "insufficient_data";
 
   async function startClassroom(): Promise<void> {
     setWorking("start"); setError(null);
@@ -142,9 +146,35 @@ export default function LiveTeachingPage() {
         {currentPlan && <Card size="small" title="Checkpoint hiện tại"><p><strong>Trigger slide {currentPlan.triggerSlide}</strong></p><p className="muted">Yêu cầu ban đầu: {currentPlan.teacherPrompt}</p>{currentPlan.status === "preview" && <><div className="checkpoint-preview-list">{previewQuestions.map((question, index) => <Card key={question.id} size="small" title={`Câu hỏi ${index + 1}`}><p><strong>{question.question}</strong></p>{question.options.map(option => <p key={option.id}>{option.id}. {option.text}{option.correct ? " (Đáp án đúng)" : ""}</p>)}</Card>)}</div><div className="checkpoint-revision"><Input.TextArea value={revisionPrompts[currentPlan.id] ?? currentPlan.teacherPrompt} onChange={event => setRevisionPrompts(current => ({ ...current, [currentPlan.id]: event.target.value }))} autoSize={{ minRows: 2, maxRows: 4 }} maxLength={2000} placeholder="Ví dụ: đổi thành câu hỏi thực hành, khó hơn." /><div className="checkpoint-revision-actions"><Button loading={working === currentPlan.id} onClick={() => void regeneratePlan(currentPlan)}>Tạo lại</Button><Button type="primary" loading={working === currentPlan.id} onClick={() => void openPlanToStudents(currentPlan)}>Mở checkpoint cho học viên</Button></div></div></>}{currentPlan.status === "failed" && <Button type="primary" loading={working === currentPlan.id} onClick={() => void regeneratePlan(currentPlan)}>Thử tạo lại câu hỏi</Button>}{currentPlan.status === "open" && <Button danger loading={working === currentPlan.id} onClick={() => void closePlan(currentPlan)}>Đóng checkpoint</Button>}</Card>}
       </Card></section>
       <aside className="live-side-panel">
-        <Card className="student-join-card" title="Học viên vào lớp"><QRCode value={joinUrl} size={128} bordered={false} /><Descriptions column={1} size="small" items={[{ key: "code", label: "Mã phòng", children: <strong>{session.roomCode}</strong> }, { key: "link", label: "Trang vào lớp", children: <Link href="/join">/join</Link> }]} /></Card>
+        <Card className="student-join-card" title="Học viên vào lớp">
+          <QRCode value={joinUrl} size={128} bordered={false} />
+          <Descriptions column={1} size="small" items={[{ key: "code", label: "Mã phòng", children: <strong>{session.roomCode}</strong> }, { key: "link", label: "Trang vào lớp", children: <Link href="/join">/join</Link> }]} />
+          {session.status === "draft" ? <Alert type="warning" showIcon description="Bấm Bắt đầu lớp học trước khi chia mã cho học viên." /> : <Alert type="success" showIcon description="Học viên nhập mã phòng và tên hiển thị, không cần tài khoản." />}
+        </Card>
         <Card title="Live transcription"><div className="recording-status"><div className={`recording-wave${isRecording ? " is-recording" : ""}`} aria-label={isRecording ? "Đang ghi âm" : "Ghi âm đang tạm dừng"}><span /><span /><span /><span /><span /></div><Tag color={isRecording ? "green" : generatingPlan ? "gold" : "red"}>{isRecording ? "Đang ghi âm" : statusText}</Tag></div><div style={{ maxHeight: 260, overflowY: "auto", marginTop: 12 }}>{transcript.length ? transcript.slice(-8).map(item => <p key={item.ref}><strong>{item.ref}</strong> {item.text}</p>) : <p className="muted">Đang chờ lời giảng đầu tiên...</p>}</div></Card>
-        <Card className="live-response-card" title="Tín hiệu lớp học">{currentResult ? <><div className="response-number"><strong>{currentResult.totalResponses}</strong><span>phản hồi tại checkpoint</span></div><Progress percent={Math.round(currentResult.correctRate * 100)} strokeColor="#58cc02" /><Tag color={recommendationColor[summary?.recommendation || "insufficient_data"]}>{recommendationText[summary?.recommendation || "insufficient_data"]}</Tag><p className="muted">{currentResult.dominantMisconception?.statement || summary?.reason}</p></> : <p className="muted">Kết quả phản hồi sẽ xuất hiện khi học viên trả lời.</p>}</Card>
+        <Card className="live-response-card" title="Tín hiệu lớp học">
+          {summary ? <>
+            <div className="response-number"><strong>{currentResult?.totalResponses ?? 0}</strong><span>phản hồi tại checkpoint</span></div>
+            <p className="response-participation">{summary.respondingStudents}/{summary.expectedStudents ?? summary.joinedStudents} học viên đã trả lời · {summary.joinedStudents} đã vào phòng</p>
+            <Progress percent={correctRate} strokeColor="#58cc02" trailColor="#e5e5e5" />
+            <Tag color={recommendationColor[activeRecommendation]}>{recommendationText[activeRecommendation]}</Tag>
+            <p className="muted">{currentResult?.reason ?? summary.reason}</p>
+            {currentResult && currentResult.totalResponses > 0 && <div className="result-breakdown">
+              <strong>Phân bố đáp án</strong>
+              {currentResult.optionDistribution.map(option => <div className="answer-row" key={option.optionId}>
+                <span>{option.optionId}. {option.text}{option.correct ? " (đúng)" : ""}</span>
+                <em>{option.count} ({Math.round(option.ratio * 100)}%)</em>
+              </div>)}
+            </div>}
+            {currentResult?.dominantMisconception?.statement && <p><strong>Hiểu nhầm nổi bật:</strong> {currentResult.dominantMisconception.statement}</p>}
+            {currentResult?.aiAnalysis ? <div className="ai-class-analysis">
+              <div><Tag color={currentResult.aiAnalysis.generatedBy === "ai" ? "purple" : "default"}>{currentResult.aiAnalysis.generatedBy === "ai" ? "AI phân tích" : "Phân tích theo quy tắc"}</Tag></div>
+              <strong>{currentResult.aiAnalysis.overview}</strong>
+              <p>{currentResult.aiAnalysis.pattern}</p>
+              <p><b>Gợi ý:</b> {currentResult.aiAnalysis.suggestedAction}</p>
+            </div> : openPlan && currentResult && currentResult.totalResponses > 0 ? <Alert type="info" showIcon title="Đóng checkpoint để AI phân tích" description="AI chỉ nhận số liệu tổng hợp ẩn danh sau khi giảng viên chốt phản hồi." /> : null}
+          </> : <p className="muted">Kết quả phản hồi sẽ xuất hiện khi học viên trả lời.</p>}
+        </Card>
         <Card className="slide-list-card" title="Các checkpoint">{plans.map(plan => <div key={plan.id} style={{ marginBottom: 10 }}><strong>{plan.order}. {plan.sectionTitle}</strong><div><Tag color={plan.status === "open" ? "green" : plan.status === "preview" ? "purple" : plan.status === "failed" ? "red" : plan.status === "generating" ? "gold" : "blue"}>{plan.status}</Tag> Slide {plan.triggerSlide}</div></div>)}</Card>
       </aside>
     </div>}

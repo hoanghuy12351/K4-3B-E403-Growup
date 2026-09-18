@@ -7,7 +7,7 @@ import type { StudentJoinInput } from "@/types/user";
 import { getRoomState, joinRoom, submitStudentResponse, type ActiveQuestion, type RoomJoinResult } from "@/services/diagnostic";
 
 type JoinedStudent = StudentJoinInput & RoomJoinResult;
-type DraftAnswer = { optionId?: string; explanation: string };
+type DraftAnswer = { optionId?: string };
 
 export default function JoinPage() {
   const [joined, setJoined] = useState<JoinedStudent | null>(null);
@@ -55,7 +55,7 @@ function StudentQuestionSet({ joined, questions, answers, submittedIds, submitti
   const updateAnswer = (questionId: string, change: Partial<DraftAnswer>): void => {
     setAnswers(current => {
       const previous = current[questionId];
-      return { ...current, [questionId]: { ...previous, ...change, explanation: change.explanation ?? previous?.explanation ?? "" } };
+      return { ...current, [questionId]: { ...previous, ...change } };
     });
   };
   const submitAllAnswers = async (): Promise<void> => {
@@ -64,14 +64,13 @@ function StudentQuestionSet({ joined, questions, answers, submittedIds, submitti
     try {
       await Promise.all(questions.map(question => submitStudentResponse(joined.sessionId, {
         participantId: joined.participantId, questionId: question.id, sectionId: question.sectionId,
-        optionId: answers[question.id].optionId as string, explanation: answers[question.id].explanation.trim() || undefined,
+        optionId: answers[question.id].optionId as string,
       })));
       setSubmittedIds(current => Array.from(new Set([...current, ...questions.map(question => question.id)])));
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể gửi câu trả lời."); }
     finally { setSubmitting(false); }
   };
   return <><p className="eyebrow">{questions.length} CHECKPOINT ĐANG MỞ</p><p>Chọn đáp án cho tất cả câu hỏi. Nút gửi chung sẽ mở khi bạn đã trả lời đầy đủ.</p>{questions.map(question => <div className="student-question" key={question.id}><h2>{question.question}</h2><Radio.Group value={answers[question.id]?.optionId} onChange={event => updateAnswer(question.id, { optionId: event.target.value })} style={{ display: "grid", gap: 10, width: "100%" }}>{question.options.map(option => <Radio key={option.id} value={option.id}>{option.id}. {option.text}</Radio>)}</Radio.Group>
-    <Input.TextArea value={answers[question.id]?.explanation ?? ""} onChange={event => updateAnswer(question.id, { explanation: event.target.value })} placeholder="Giải thích ngắn (không bắt buộc)" maxLength={2000} autoSize={{ minRows: 3 }} style={{ marginTop: 16 }} />
     {submittedIds.includes(question.id) ? <Alert type="success" showIcon title="Đã gửi câu trả lời" description="Bạn vẫn có thể thay đổi đáp án và gửi lại khi checkpoint còn mở." style={{ marginTop: 16 }} /> : null}
   </div>)}<div className="student-submit-all"><strong>Đã trả lời {answeredQuestions.length}/{questions.length} câu</strong><Button type="primary" size="large" disabled={!allQuestionsAnswered} loading={submitting} onClick={() => void submitAllAnswers()}>Gửi tất cả câu trả lời</Button></div></>;
 }

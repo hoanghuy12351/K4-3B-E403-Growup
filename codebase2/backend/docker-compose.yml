@@ -15,6 +15,7 @@ services:
 
   api:
     build: .
+    env_file: .env
     ports:
       - "8000:8000"
     environment:
@@ -23,7 +24,7 @@ services:
       DB_NAME: growup
       DB_USER: growup
       DB_PASSWORD: growup_local_only
-      FRONTEND_ORIGINS: http://localhost:3000
+      FRONTEND_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
     depends_on:
       db:
         condition: service_healthy

@@ -90,7 +90,7 @@ export async function register(input: RegisterInput): Promise<AuthSession> {
 }
 
 export async function getSession(): Promise<AuthSession> {
-  return apiRequest<AuthSession>("/auth/me");
+  return apiRequest<AuthSession>("/auth/me", { timeoutMs: 3000 });
 }
 
 export async function logout(): Promise<void> {

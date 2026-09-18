@@ -545,6 +545,13 @@ p, li { color: var(--muted); font-weight: 650; }
 .response-number { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .response-number strong { color: var(--green); font-size: 44px; font-weight: 950; line-height: 1; }
 .response-number span { color: #6f7a76; font-weight: 900; }
+.response-participation { margin: -4px 0 14px; color: #6f7a76; font-size: 13px; font-weight: 800; }
+.result-breakdown { display: grid; gap: 7px; margin: 16px 0; padding-top: 14px; border-top: 2px solid #eef2f0; }
+.answer-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #eef2f0; color: #4c5c56; font-size: 12px; }
+.answer-row span { min-width: 0; }
+.answer-row em { flex: 0 0 auto; color: #24312c; font-style: normal; font-weight: 900; }
+.ai-class-analysis { display: grid; gap: 8px; margin-top: 16px; padding: 14px; border: 2px solid #d9c8ff; border-radius: 14px; background: #faf7ff; }
+.ai-class-analysis p { margin: 0; color: #5b526a; line-height: 1.5; }
 .teacher-decisions { display: flex; gap: 10px; margin-top: 14px; }
 .live-slide-list { display: grid; gap: 10px; margin-bottom: 14px; }
 .live-slide-list button {

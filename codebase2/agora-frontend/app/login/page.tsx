@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -14,12 +14,15 @@ export default function LoginPage() {
   const { user, ready, signIn } = useAuth();
   const router = useRouter();
   const { message } = App.useApp();
+  const [form] = Form.useForm<LoginInput>();
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (ready && user) router.replace("/dashboard");
   }, [ready, user, router]);
-  if (!ready || user) return <Loading />;
+
+  if (ready && user) return <Loading />;
 
   return (
     <main className="login-page auth-playground">
@@ -51,31 +54,62 @@ export default function LoginPage() {
           </Link>
           <h2>Chào mừng trở lại</h2>
           <p className="muted">Đăng nhập tài khoản giảng viên.</p>
-          {USE_MOCK && (
+          <Alert
+            type="info"
+            title="Tài khoản giảng viên mẫu"
+            description="Email: teacher@example.com · Mật khẩu: demo123456"
+            showIcon
+            style={{ marginBottom: 20 }}
+          />
+          {formError && (
             <Alert
-              type="info"
-              title="Đăng nhập mô phỏng"
-              description="Tài khoản mẫu: teacher@example.com / demo123456. Không dùng mật khẩu thật."
+              type="error"
+              title="Đăng nhập không thành công"
+              description={formError}
               showIcon
-              style={{ marginBottom: 24 }}
+              closable
+              onClose={() => setFormError(null)}
+              style={{ marginBottom: 20 }}
             />
           )}
           <Form<LoginInput>
+            form={form}
             layout="vertical"
             requiredMark={false}
-            initialValues={
-              USE_MOCK ? { email: "teacher@example.com" } : undefined
-            }
+            initialValues={{
+              email: "teacher@example.com",
+              password: "demo123456",
+            }}
+            onSubmitCapture={(e) => {
+              e.preventDefault();
+            }}
             onFinish={async (values) => {
+              setFormError(null);
               setSubmitting(true);
               try {
+                console.log("[Login] Bắt đầu đăng nhập:", values.email);
                 await signIn(values);
+                console.log("[Login] Thành công, đang chuyển sang bục giảng...");
+                message.success("Đăng nhập thành công! Đang chuyển hướng...");
                 router.replace("/dashboard");
+                setTimeout(() => {
+                  window.location.assign("/dashboard");
+                }, 400);
               } catch (error) {
-                message.error(getErrorMessage(error));
+                console.error("[Login] Lỗi:", error);
+                const errorMsg = getErrorMessage(error);
+                setFormError(errorMsg);
+                message.error(errorMsg);
               } finally {
                 setSubmitting(false);
               }
+            }}
+            onFinishFailed={(err) => {
+              console.warn("[Login] Validation failed:", err);
+              const firstErr = err.errorFields?.[0]?.errors?.[0];
+              const msg = firstErr || "Vui lòng nhập đầy đủ email và mật khẩu (tối thiểu 8 ký tự).";
+              setFormError(msg);
+              message.warning(msg);
             }}
           >
             <Form.Item
@@ -100,14 +134,21 @@ export default function LoginPage() {
                 { min: 8, message: "Nhập ít nhất 8 ký tự." },
               ]}
             >
-              <Input.Password size="large" autoComplete="current-password" />
+              <Input.Password
+                size="large"
+                autoComplete="current-password"
+                placeholder="••••••••"
+              />
             </Form.Item>
             <Button
               size="large"
               type="primary"
-              htmlType="submit"
+              htmlType="button"
               block
               loading={submitting}
+              onClick={() => {
+                form.submit();
+              }}
             >
               Đăng nhập
             </Button>
