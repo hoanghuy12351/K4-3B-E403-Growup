@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Alert, Button, Card, Form, InputNumber, List, Select, Space, Spin, Tag } from "antd";
 import AppLayout from "@/components/Layout/AppLayout";
 import { createDiagnosticSession, listLessonMaterials, startDiagnosticSession, type AvailableLessonMaterial, type CreatedSession } from "@/services/diagnostic";
@@ -15,7 +14,6 @@ export default function NewDiagnosticPage() {
   const [loading, setLoading] = useState(false);
   const [materials, setMaterials] = useState<AvailableLessonMaterial[]>([]);
   const [loadingMaterials, setLoadingMaterials] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     let active = true;
@@ -47,7 +45,7 @@ export default function NewDiagnosticPage() {
     setError(null);
     try {
       await startDiagnosticSession(session.sessionId);
-      router.push(`/diagnostic/${session.sessionId}/student`);
+      setSession({ ...session, status: "active" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Không thể bắt đầu phiên kiểm tra.");
     } finally {
@@ -58,7 +56,7 @@ export default function NewDiagnosticPage() {
   return <AppLayout>
     <div className="page-heading"><div><p className="eyebrow">DIAGNOSTIC SESSION</p><h1>Tạo kiểm tra theo từng phần bài học</h1><p className="muted">Hệ thống tạo một câu hỏi cho mỗi section. Giảng viên xem trước rồi mới mở cho học viên.</p></div></div>
     {error && <Alert className="diagnostic-alert" type="error" showIcon title={error} />}
-    {!session && <Card title="Chọn bài giảng"><p className="muted">Danh sách được đọc tự động từ thư mục backend <code>data/</code>. Hệ thống sẽ trích text PDF, chia section và gửi từng section sang AI.</p><Form form={form} layout="vertical" onFinish={generate} initialValues={{ expectedStudents: 30 }}>
+    {!session && <Card title="Chọn bài giảng"><p className="muted">Danh sách được đọc tự động từ thư mục backend <code>data/</code>. Hệ thống ánh xạ PDF đã chọn sang nội dung bài học mock ổn định, chia section và gửi từng section sang AI.</p><Form form={form} layout="vertical" onFinish={generate} initialValues={{ expectedStudents: 30 }}>
       <Form.Item label="Bài giảng hoặc PDF" name="materialId" rules={[{ required: true, message: "Chọn một bài giảng." }]}>{loadingMaterials ? <Spin /> : <Select placeholder="Chọn PDF từ data/" options={materials.map((material) => ({ value: material.id, label: material.title }))} />}</Form.Item>
       <Form.Item label="Số học viên dự kiến" name="expectedStudents"><InputNumber min={1} max={10000} /></Form.Item>
       <Button type="primary" htmlType="submit" loading={loading} disabled={loadingMaterials || !materials.length}>Tạo diagnostic</Button>
@@ -70,7 +68,10 @@ export default function NewDiagnosticPage() {
         <h3>{item.question.question}</h3>
         <List size="small" dataSource={item.question.options} renderItem={(option) => <List.Item><Tag color={option.correct ? "green" : "default"}>{option.id}</Tag>{option.text}</List.Item>} />
       </Card>} />
-      <Space><Button type="primary" onClick={start} loading={loading}>Mở phiên cho học viên</Button><Button onClick={() => router.push(`/diagnostic/${session.sessionId}/report`)}>Xem báo cáo</Button></Space>
+      {session.status === "draft" ? <Button type="primary" onClick={start} loading={loading}>Mở phiên cho học viên</Button> : <Card title="Mở hai tab riêng biệt">
+        <p className="muted">Gửi liên kết tab Học viên cho lớp. Giữ tab Báo cáo giảng viên riêng để theo dõi phản hồi.</p>
+        <Space wrap><Button type="primary" href={`/diagnostic/${session.sessionId}/student`} target="_blank" rel="noreferrer">Mở tab học viên</Button><Button href={`/diagnostic/${session.sessionId}/report`} target="_blank" rel="noreferrer">Mở tab báo cáo giảng viên</Button></Space>
+      </Card>}
     </Space>}
   </AppLayout>;
 }

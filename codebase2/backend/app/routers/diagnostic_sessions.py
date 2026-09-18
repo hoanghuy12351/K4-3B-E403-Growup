@@ -72,8 +72,8 @@ def create_session(request: CreateDiagnosticSessionRequest) -> dict[str, Any]:
     except LLMTimeoutError:
         logger.warning("Diagnostic session provider timed out.")
         raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail={"error": {"code": "AI_PROVIDER_TIMEOUT", "message": "The AI provider timed out while generating diagnostic questions."}}) from None
-    except (LLMProviderError, LLMRateLimitError, LLMMalformedResponseError, LLMValidationError):
-        logger.warning("Diagnostic session provider failed.")
+    except (LLMProviderError, LLMRateLimitError, LLMMalformedResponseError, LLMValidationError) as error:
+        logger.warning("Diagnostic generation failed: %s: %s", type(error).__name__, str(error))
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail={"error": {"code": "AI_PROVIDER_ERROR", "message": "The configured AI provider could not generate diagnostic questions."}}) from None
     except (TypeError, ValueError):
         logger.warning("Diagnostic session configuration or generation result is invalid.")

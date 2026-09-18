@@ -36,7 +36,7 @@ export interface StudentSession {
 
 export interface CreatedSession {
   sessionId: string;
-  lesson: { title: string; sourceId: string; sourceBlocks: Array<{ page: number; text: string }> };
+  lesson: { materialId: string | null; title: string; sourceId: string; contentMode: string; sourceBlocks: Array<{ page: number; text: string }> };
   sections: Array<{
     sectionId: string;
     section: { id: string; title: string; text: string; sourceRefs: SourceReference[]; order: number };
@@ -68,6 +68,8 @@ export interface DiagnosticSummary {
     sectionTitle: string;
     concept: string;
     totalResponses: number;
+    correctResponses: number;
+    incorrectResponses: number;
     responseCoverage: number | null;
     correctRate: number;
     status: string;
@@ -82,7 +84,7 @@ export function listLessonMaterials() {
 }
 
 export function createDiagnosticSession(payload: { lesson: { materialId?: string; title?: string; text?: string; sourceId?: string; pdfPath?: string }; expectedStudents?: number }) {
-  return apiRequest<CreatedSession>("/api/diagnostic-sessions", { method: "POST", body: JSON.stringify(payload) });
+  return apiRequest<CreatedSession>("/api/diagnostic-sessions", { method: "POST", body: JSON.stringify(payload) }, 120000);
 }
 
 export function getDiagnosticSession(sessionId: string) {

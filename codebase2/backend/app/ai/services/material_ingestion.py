@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import find_repository_root
+from ..data.mock_lesson_materials import mock_lesson_for
 
 
 class MaterialIngestionError(ValueError):
@@ -20,10 +21,14 @@ class SourceBlock:
     text: str
     source_id: str
     source_type: str
+    section_title: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the source block using the API's camelCase contract."""
-        return {"page": self.page, "text": self.text, "sourceId": self.source_id, "type": self.source_type}
+        result = {"page": self.page, "text": self.text, "sourceId": self.source_id, "type": self.source_type}
+        if self.section_title:
+            result["sectionTitle"] = self.section_title
+        return result
 
 
 @dataclass(frozen=True)
@@ -94,28 +99,28 @@ def resolve_available_material(material_id: str) -> dict[str, str]:
     material = next((item for item in list_available_materials() if item.id == material_id), None)
     if material is None:
         raise MaterialIngestionError("The selected lesson material is unavailable.")
-    return {"title": material.title, "sourceId": material.source_id, "pdfPath": material.pdf_path}
+    return {"materialId": material.id, "title": material.title, "sourceId": material.source_id, "pdfPath": material.pdf_path}
 
 
-def _ingest_pdf(title: str, source_id: str, pdf_path: str) -> IngestedMaterial:
-    """Extract readable text per PDF page without OCR or external services."""
-    try:
-        from pypdf import PdfReader
-    except ImportError as error:
-        raise MaterialIngestionError("PDF ingestion requires the pypdf dependency.") from error
-    path = _resolve_pdf_path(pdf_path)
-    try:
-        reader = PdfReader(str(path))
-        blocks = [
-            SourceBlock(page=index, text=text, source_id=source_id, source_type="pdf")
-            for index, page in enumerate(reader.pages, start=1)
-            if (text := _normalize_text(page.extract_text() or ""))
-        ]
-    except Exception as error:
-        raise MaterialIngestionError("The lesson PDF could not be read.") from error
-    if not blocks:
-        raise MaterialIngestionError("The lesson PDF does not contain extractable text.")
-    return IngestedMaterial(title=title, source_id=source_id, blocks=blocks)
+def _ingest_mock_pdf(title: str, source_id: str, pdf_path: str) -> IngestedMaterial:
+    """Map a selected local PDF to explicitly mock extracted blocks.
+
+    Validating the path preserves the existing local-material boundary, but the
+    PDF bytes are never opened or parsed in the diagnostic workflow.
+    """
+    _resolve_pdf_path(pdf_path)
+    mock_lesson = mock_lesson_for(pdf_path, title)
+    blocks = [
+        SourceBlock(
+            page=index,
+            text=_normalize_text(section["text"]),
+            source_id=source_id,
+            source_type="mock_pdf",
+            section_title=_normalize_text(section["title"]),
+        )
+        for index, section in enumerate(mock_lesson["sections"], start=1)
+    ]
+    return IngestedMaterial(title=_normalize_text(mock_lesson["title"]), source_id=source_id, blocks=blocks)
 
 
 def ingest_material(material: dict[str, Any]) -> IngestedMaterial:
@@ -131,5 +136,5 @@ def ingest_material(material: dict[str, Any]) -> IngestedMaterial:
     if text:
         return IngestedMaterial(title=title, source_id=source_id, blocks=[SourceBlock(page=1, text=text, source_id=source_id, source_type="text")])
     if pdf_path:
-        return _ingest_pdf(title, source_id, pdf_path)
+        return _ingest_mock_pdf(title, source_id, pdf_path)
     raise MaterialIngestionError("Lesson material requires non-empty text or pdfPath.")

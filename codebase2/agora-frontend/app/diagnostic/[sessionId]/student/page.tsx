@@ -43,16 +43,16 @@ export default function StudentDiagnosticPage() {
   if (error && !session) return <AppLayout><Alert type="error" showIcon title={error} /></AppLayout>;
   if (!session) return <AppLayout><div className="diagnostic-loading"><Spin /> Đang tải câu hỏi...</div></AppLayout>;
   const question = session.questions[current];
-  if (!question) return <AppLayout><Card><h1>Đã gửi tất cả câu trả lời</h1><p className="muted">Cảm ơn bạn. Kết quả tổng hợp sẽ được giảng viên xem sau khi thu đủ phản hồi.</p></Card></AppLayout>;
+  if (!question) return <AppLayout><Card className="student-question-card"><h1>Đã gửi tất cả câu trả lời</h1><p className="muted">Cảm ơn bạn. Kết quả tổng hợp sẽ được giảng viên xem trong tab Báo cáo riêng.</p></Card></AppLayout>;
   return <AppLayout>
     <div className="page-heading"><div><p className="eyebrow">STUDENT DIAGNOSTIC</p><h1>{session.lesson.title}</h1><p className="muted">Câu {current + 1} / {session.questions.length}</p></div><Tag color="blue">{session.status}</Tag></div>
     {error && <Alert className="diagnostic-alert" type="error" showIcon title={error} />}
     <Card className="student-question-card"><Space direction="vertical" size="large" className="diagnostic-stack"><Input aria-label="Student ID" value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="Mã học viên" />
-      <div><p className="eyebrow">{question.concept}</p><h2>{question.question}</h2></div>
-      <Radio.Group value={selected} onChange={(event) => setSelected(event.target.value)} className="option-group">
-        <Space direction="vertical">{question.options.map((option) => <Radio key={option.id} value={option.id}><strong>{option.id}.</strong> {option.text}</Radio>)}</Space>
-      </Radio.Group>
-      <Button type="primary" onClick={submit} disabled={!selected || !studentId.trim()} loading={submitting}>Gửi câu trả lời</Button>
-    </Space></Card>
+        <div><p className="eyebrow">{question.concept}</p><h2>{question.question}</h2></div>
+        <Radio.Group value={selected} onChange={(event) => setSelected(event.target.value)} className="option-group">
+          <Space direction="vertical">{question.options.map((option) => <Radio key={option.id} value={option.id}><strong>{option.id}.</strong> {option.text}</Radio>)}</Space>
+        </Radio.Group>
+        <Button type="primary" onClick={submit} disabled={!selected || !studentId.trim()} loading={submitting}>Gửi câu trả lời</Button>
+      </Space></Card>
   </AppLayout>;
 }

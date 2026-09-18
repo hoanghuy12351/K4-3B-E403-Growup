@@ -98,6 +98,18 @@ def segment_lesson(material: IngestedMaterial, *, min_chars: int = LESSON_SECTIO
     """Merge related adjacent source chunks while preserving heading and page boundaries."""
     if min_chars <= 0 or max_chars < min_chars or max_sections < 1:
         raise ValueError("Lesson segmentation limits are invalid.")
+    mock_blocks = [block for block in material.blocks if block.source_type == "mock_pdf"]
+    if mock_blocks and len(mock_blocks) == len(material.blocks):
+        return [
+            LessonSection(
+                id=f"section-{order:02d}",
+                title=block.section_title or f"{material.title} — Part {order}",
+                text=block.text,
+                source_refs=[{"type": "mock_pdf", "sourceId": block.source_id, "page": block.page}],
+                order=order,
+            )
+            for order, block in enumerate(mock_blocks[:max_sections], start=1)
+        ]
     chunks = _structural_chunks(material, max_chars)
     if not chunks:
         raise ValueError("Lesson material does not contain segmentable text.")

@@ -36,7 +36,7 @@ def _build_user_prompt(teaching_context: dict[str, Any], concept_seed: dict[str,
         json.dumps(evidence, ensure_ascii=False),
         "</HISTORICAL_STUDENT_QUESTIONS_UNTRUSTED>",
         "<TASK>",
-        "Generate one diagnostic classroom check. Return only data matching the supplied schema.",
+        "Generate one diagnostic classroom check. Return only data matching the supplied schema. If no historical student questions are provided, return an empty misconceptions list unless supported evidence exists. Do not invent evidence IDs or backend provenance identifiers.",
         "</TASK>",
     ])
 
@@ -53,7 +53,11 @@ def generate_llm_diagnostic(*, teaching_context: dict[str, Any], concept_seed: d
         schema=LLMDiagnosticResult.model_json_schema(),
         request_id=request_id,
     )
-    result = parse_and_validate(provider_result.data, evidence_turn_ids={item["turnId"] for item in evidence}, teaching_context=teaching_context)
+    normalized_data = json.loads(json.dumps(provider_result.data))
+    question = normalized_data.get("question")
+    if isinstance(question, dict):
+        question["source"] = [{"type": str(teaching_context.get("sourceType") or "slide"), "id": str(teaching_context.get("sourceId") or "")}]
+    result = parse_and_validate(normalized_data, evidence_turn_ids={item["turnId"] for item in evidence}, teaching_context=teaching_context)
     return result, {
         "mode": "llm",
         "provider": provider_result.provider,

@@ -30,7 +30,13 @@ class DiagnosticSessionService:
         section_diagnostics = generate_lesson_diagnostic(material, settings=settings)
         session = DiagnosticSession(
             id=str(uuid4()),
-            lesson={"title": material.title, "sourceId": material.source_id, "sourceBlocks": [block.to_dict() for block in material.blocks]},
+            lesson={
+                "materialId": lesson.get("materialId"),
+                "title": material.title,
+                "sourceId": material.source_id,
+                "contentMode": "mock_pdf_extract" if all(block.source_type == "mock_pdf" for block in material.blocks) else "text",
+                "sourceBlocks": [block.to_dict() for block in material.blocks],
+            },
             sections=[item.to_dict() for item in section_diagnostics],
             expected_students=expected_students,
         )

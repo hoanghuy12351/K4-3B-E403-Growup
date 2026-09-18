@@ -40,6 +40,23 @@ class LLMDiagnosticServiceTests(unittest.TestCase):
         self.assertEqual(result.question.id, "Q1")
         self.assertFalse(metadata["fallbackUsed"])
 
+    def test_service_normalizes_model_provenance_and_allows_empty_evidence(self):
+        payload = valid_payload()
+        payload["misconceptions"] = []
+        payload["question"]["options"][1]["misconceptionId"] = None
+        payload["question"]["source"] = [{"type": "slide", "id": "model-invented-id"}]
+        context = {**self.context(), "sourceId": "pdf-trusted", "sourceType": "mock_pdf"}
+        result, _ = generate_llm_diagnostic(
+            teaching_context=context,
+            concept_seed={"topic": "Tokenization", "concepts": ["Tokenization"]},
+            historical_questions=[],
+            settings=AISettings(mode="llm", provider="openai", openai_api_key="test", openai_model="mock"),
+            provider=StubProvider(payload),
+        )
+        self.assertEqual(result.misconceptions, [])
+        self.assertEqual(result.question.source[0].id, "pdf-trusted")
+        self.assertEqual(result.question.source[0].type, "mock_pdf")
+
     def test_deterministic_and_hybrid_fallback_modes(self):
         deterministic = generate_diagnostic_check(teaching_context=self.context(), adapter=StubAdapter(), settings=AISettings(mode="deterministic"))
         self.assertEqual(deterministic["generation"]["mode"], "deterministic")

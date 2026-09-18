@@ -13,6 +13,7 @@ def analyze_responses(question: dict[str, object] | None = None, responses: list
     accepted = [response for response in responses or [] if response.get("optionId") in options]
     total_responses = len(accepted)
     correct_count = sum(bool(options[response["optionId"]]["correct"]) for response in accepted)
+    incorrect_count = total_responses - correct_count
     correct_rate = round(correct_count / total_responses, 3) if total_responses else 0
     status = "understood" if correct_rate >= thresholds["understood"] else "uncertain" if correct_rate >= thresholds["uncertain"] else "needs_attention"
     signal_counts: dict[str, int] = {}
@@ -22,4 +23,12 @@ def analyze_responses(question: dict[str, object] | None = None, responses: list
             signal_counts[misconception_id] = signal_counts.get(misconception_id, 0) + 1
     signals = [{"misconceptionId": misconception_id, "count": count, "ratio": round(count / total_responses, 3)} for misconception_id, count in signal_counts.items()]
     recommendation = "Continue to the next concept block." if status == "understood" else "Ask for one brief clarification before continuing." if status == "uncertain" else f"Briefly clarify {question.get('concept', '')} before continuing."
-    return {"totalResponses": total_responses, "correctRate": correct_rate, "status": status, "misconceptionSignals": signals, "recommendation": recommendation}
+    return {
+        "totalResponses": total_responses,
+        "correctResponses": correct_count,
+        "incorrectResponses": incorrect_count,
+        "correctRate": correct_rate,
+        "status": status,
+        "misconceptionSignals": signals,
+        "recommendation": recommendation,
+    }

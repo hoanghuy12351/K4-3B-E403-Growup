@@ -45,6 +45,8 @@ def _section_result(session: DiagnosticSession, section_data: dict[str, Any]) ->
         "sectionTitle": section["title"],
         "concept": (section_data.get("concepts") or [question.get("concept")])[0],
         "totalResponses": response_count,
+        "correctResponses": analysis["correctResponses"],
+        "incorrectResponses": analysis["incorrectResponses"],
         "responseCoverage": coverage,
         "correctRate": analysis["correctRate"],
         "misconceptionSignals": signals,
@@ -60,9 +62,10 @@ def build_class_summary(session: DiagnosticSession) -> dict[str, Any]:
     section_results = [_section_result(session, section_data) for section_data in session.sections]
     student_count = len({response.student_id for response in session.responses})
     response_coverage = round(student_count / session.expected_students, 3) if session.expected_students else None
-    insufficient = [item for item in section_results if item["status"] == "insufficient_data"]
     needs_attention = [item for item in section_results if item["status"] == "needs_attention"]
     uncertain = [item for item in section_results if item["status"] == "uncertain"]
+    understood = [item for item in section_results if item["status"] == "understood"]
+    insufficient = [item for item in section_results if item["status"] == "insufficient_data"]
     weak_concepts = [
         {
             "sectionId": item["sectionId"],
@@ -74,12 +77,7 @@ def build_class_summary(session: DiagnosticSession) -> dict[str, Any]:
         for item in [*needs_attention, *uncertain]
     ]
     minimum_count, minimum_coverage = response_coverage_settings()
-    if insufficient:
-        recommendation = "insufficient_data"
-        overall_status = "insufficient_data"
-        reason = "Not enough section responses are available to infer class understanding reliably."
-        evidence = {"sectionIds": [item["sectionId"] for item in insufficient], "minimumResponseCount": minimum_count, "minimumResponseCoverage": minimum_coverage}
-    elif needs_attention:
+    if needs_attention:
         recommendation = "reteach"
         overall_status = "needs_attention"
         target = needs_attention[0]
@@ -91,11 +89,16 @@ def build_class_summary(session: DiagnosticSession) -> dict[str, Any]:
         target = uncertain[0]
         reason = f"{target['concept']} has a {target['correctRate']:.0%} correct rate. Suggested action: clarify it briefly before continuing."
         evidence = {"sectionId": target["sectionId"], "responseCount": target["totalResponses"], "correctRate": target["correctRate"], "dominantMisconception": target["dominantMisconception"]}
-    else:
+    elif understood and not insufficient:
         recommendation = "continue"
         overall_status = "understood"
         reason = "All sections meet the prototype understanding threshold with sufficient response evidence."
         evidence = {"sectionCount": len(section_results), "responseCoverage": response_coverage}
+    else:
+        recommendation = "insufficient_data"
+        overall_status = "insufficient_data"
+        reason = "Not enough section responses are available to infer class understanding reliably."
+        evidence = {"sectionIds": [item["sectionId"] for item in insufficient], "minimumResponseCount": minimum_count, "minimumResponseCoverage": minimum_coverage}
     return {
         "sessionId": session.id,
         "responseCoverage": response_coverage,

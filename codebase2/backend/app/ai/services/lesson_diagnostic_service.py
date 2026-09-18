@@ -1,12 +1,15 @@
 """Generate one canonical diagnostic question for each lesson section."""
 
 from dataclasses import dataclass
+import logging
 from typing import Any
 
 from ..config import AISettings
 from ..pipeline import generate_diagnostic_check
 from .lesson_segmenter import LessonSection, segment_lesson
 from .material_ingestion import IngestedMaterial
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -40,12 +43,27 @@ def generate_lesson_diagnostic(material: IngestedMaterial, *, options: dict[str,
     settings = settings or AISettings.from_env()
     diagnostics: list[SectionDiagnostic] = []
     for section in segment_lesson(material):
-        result = generate_diagnostic_check(
-            teaching_context={"title": section.title, "text": section.text, "sourceId": f"{material.source_id}:{section.id}"},
-            options=options or {},
-            settings=settings,
-        )
+        teaching_context = {
+            "title": section.title,
+            "text": section.text,
+            "sourceId": material.source_id,
+            "sourceType": section.source_refs[0]["type"],
+        }
+        try:
+            result = generate_diagnostic_check(teaching_context=teaching_context, options=options or {}, settings=settings)
+        except Exception as error:
+            logger.warning(
+                "Diagnostic generation failed: sectionId=%s sectionTitle=%s error=%s: %s",
+                section.id,
+                section.title,
+                type(error).__name__,
+                str(error),
+            )
+            raise
         context = result["context"]
+        question = dict((result.get("questions") or [])[0])
+        question["id"] = f"Q-{section.id}"
+        question["source"] = [{"type": teaching_context["sourceType"], "id": material.source_id}]
         diagnostics.append(
             SectionDiagnostic(
                 section=section,
@@ -53,7 +71,7 @@ def generate_lesson_diagnostic(material: IngestedMaterial, *, options: dict[str,
                 learning_objectives=list(context.get("learningObjectives") or []),
                 misconceptions=list(result.get("misconceptions") or []),
                 historical_evidence=dict(result.get("historicalEvidence") or {}),
-                question=dict((result.get("questions") or [])[0]),
+                question=question,
                 generation=dict(result.get("generation") or {}),
             )
         )
