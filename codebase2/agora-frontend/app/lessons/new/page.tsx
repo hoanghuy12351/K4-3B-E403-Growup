@@ -8,6 +8,7 @@ import { createLiveSession, getPresetDemoCatalog, type PresetDemoCatalog } from 
 import { USE_MOCK } from "@/services/api";
 
 const defaultPrompt = "Tạo một câu hỏi khái niệm mức trung bình dựa trên phần vừa giảng.";
+const ANALYSIS_DELAY_MS = 10_000;
 
 export default function NewLessonPage() {
   const router = useRouter();
@@ -23,7 +24,10 @@ export default function NewLessonPage() {
   async function analyzeLesson(): Promise<void> {
     setLoading(true); setError(null);
     try {
-      const next = await getPresetDemoCatalog();
+      const [next] = await Promise.all([
+        getPresetDemoCatalog(),
+        new Promise<void>(resolve => window.setTimeout(resolve, ANALYSIS_DELAY_MS)),
+      ]);
       setCatalog(next); setSelectedIds([]); setPrompts({});
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể tải dữ liệu bài giảng.");
@@ -67,7 +71,7 @@ export default function NewLessonPage() {
         <section className="builder-panel lesson-size-panel"><div><p className="eyebrow">QUY MÔ LỚP</p><h3>Số học viên dự kiến</h3><p className="muted">Dùng để đánh giá mức độ phủ phản hồi khi lớp làm checkpoint.</p></div><InputNumber className="lesson-size-input" min={1} max={10000} value={expectedStudents} onChange={value => setExpectedStudents(value ?? 30)} /></section>
       </div>
     </Card>
-    {loading && <Card className="recent-lesson-card"><Spin /> Đang đọc timeline bài giảng...</Card>}
+    {loading && <Card className="recent-lesson-card"><Spin /> Đang phân tích bài giảng và chuẩn bị timeline checkpoint...</Card>}
     {catalog && <Card className="recent-lesson-card" title="Timeline checkpoint">
       <p className="muted">Có thể chọn nhiều phần. Thứ tự checkpoint luôn theo thứ tự bài giảng.</p>
       {catalog.sections.map(section => {
