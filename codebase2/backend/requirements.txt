@@ -1,0 +1,1 @@
+# Bổ sung thư viện Python và phiên bản khi chọn công nghệ triển khai.

@@ -1,0 +1,42 @@
+"use client";
+import { useEffect, useState, type ReactNode } from "react";
+import { App, ConfigProvider } from "antd";
+import viVN from "antd/locale/vi_VN";
+import { AuthStoreContext, createAuthStore, DEMO_SESSION_KEY } from "@/stores/authStore";
+import { USE_MOCK } from "@/services/api";
+import { getSession } from "@/services/auth";
+import type { User } from "@/types/user";
+
+export default function Providers({ children }: { children: ReactNode }) {
+  const [store] = useState(createAuthStore);
+  useEffect(() => {
+    let active = true;
+    async function restore() {
+      try {
+        if (USE_MOCK) {
+          const raw = localStorage.getItem(DEMO_SESSION_KEY);
+          if (raw && active) {
+            const user = JSON.parse(raw) as User;
+            if (typeof user.id === "string" && typeof user.name === "string" && typeof user.email === "string"
+              && (user.role === "teacher" || user.role === "student")) store.getState().setUser(user);
+          }
+        } else {
+          const session = await getSession();
+          if (active) store.getState().setUser(session.user);
+        }
+      } catch {
+        // Không có phiên hợp lệ: chuyển về đăng nhập.
+      } finally { if (active) store.getState().setReady(); }
+    }
+    void restore();
+    return () => { active = false; };
+  }, [store]);
+  return <AuthStoreContext.Provider value={store}>
+    <ConfigProvider locale={viVN} theme={{ token: {
+      colorPrimary: "#256d62", borderRadius: 12, fontFamily: "Arial, sans-serif",
+    } }}>
+      <App>{children}</App>
+    </ConfigProvider>
+  </AuthStoreContext.Provider>;
+}
+

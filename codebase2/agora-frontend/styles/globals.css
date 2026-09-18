@@ -1,0 +1,74 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: #f5f7f7; color: #173530; font-family: Arial, sans-serif; }
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+h1, h2, h3, p { margin-top: 0; }
+h1 { font-size: clamp(26px, 3vw, 36px); letter-spacing: -1px; }
+h2 { font-size: 26px; letter-spacing: -.5px; }
+h3 { font-size: 18px; margin-bottom: 10px; }
+p { line-height: 1.65; }
+.muted { color: #687b76; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #477c71; margin-bottom: 14px; }
+.brand { display: flex; align-items: center; gap: 12px; font-size: 25px; font-weight: 700; color: inherit; }
+.brand-mark { display: grid; place-items: center; background: #256d62; color: white; width: 38px; height: 38px; border-radius: 12px; font-size: 24px; }
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 230px; flex-shrink: 0; padding: 32px 22px; background: #fff; border-right: 1px solid #e2eae7; display: flex; flex-direction: column; }
+.sidebar-caption { margin: 45px 10px 16px; color: #93a29d; font-size: 10px; letter-spacing: 1px; }
+.nav-link { display: block; padding: 14px 16px; margin-bottom: 8px; border-radius: 10px; color: #687b76; }
+.nav-link:hover { background: #f0f6f3; }
+.nav-link.active { background: #e9f4ef; color: #256d62; font-weight: 700; }
+.sidebar-note { margin-top: auto; padding-top: 50px; color: #84938e; font-size: 12px; line-height: 1.8; }
+.main-area { flex: 1; min-width: 0; }
+.topbar { height: 82px; display: flex; justify-content: space-between; align-items: center; padding: 0 36px; background: #fff; border-bottom: 1px solid #e2eae7; gap: 16px; }
+.topbar-label { font-size: 13px; color: #778980; }
+.header-actions { display: flex; align-items: center; gap: 12px; }
+.account-name { font-size: 13px; }
+.page-content { padding: 30px 36px; max-width: 1400px; margin: auto; }
+.demo-alert { margin-bottom: 28px; }
+.page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.page-heading h1 { margin-bottom: 8px; }
+.page-heading p:last-child { margin-bottom: 0; }
+.welcome-card { background: #e9f3ed; border-color: #dcebe0; margin-bottom: 24px; }
+.welcome-content { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
+.welcome-content p:last-child { max-width: 540px; margin-bottom: 0; color: #57746a; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
+.step-number { display: inline-block; color: #5c8e7f; font-size: 12px; font-weight: 700; margin-bottom: 24px; }
+.table-toolbar { display: flex; gap: 16px; justify-content: space-between; margin-bottom: 24px; }
+.table-toolbar .ant-input-search { max-width: 380px; }
+.loading-state { min-height: 65vh; display: grid; place-content: center; text-align: center; gap: 18px; color: #687b76; }
+.login-page { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; }
+.login-story { background: #173f36; color: #fff; padding: 60px clamp(30px, 6vw, 90px); display: flex; flex-direction: column; }
+.login-story .brand { margin-bottom: 110px; }
+.login-story .brand-mark { background: #b9d9bb; color: #173f36; }
+.login-story .eyebrow { color: #b9d9bb; }
+.login-story h1 { font-size: clamp(36px, 4vw, 58px); line-height: 1.18; letter-spacing: -2px; }
+.login-story > p:not(.eyebrow) { color: #bfd3cb; max-width: 410px; }
+.story-footer { margin-top: auto; padding-top: 60px; color: #98b9ab; font-size: 12px; }
+.login-panel { display: grid; place-items: center; padding: 40px 24px; background: #fff; }
+.login-card { max-width: 400px; width: 100%; }
+.login-card h2 { margin-bottom: 10px; }
+.login-card > .muted { margin-bottom: 28px; }
+@media (max-width: 900px) {
+  .sidebar { width: 185px; padding: 24px 16px; }
+  .page-content { padding: 24px; }
+  .topbar { padding: 0 24px; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .welcome-content { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 640px) {
+  .app-shell { flex-direction: column; }
+  .sidebar { width: 100%; padding: 16px; border-right: 0; border-bottom: 1px solid #e2eae7; }
+  .sidebar .brand { font-size: 22px; }
+  .sidebar nav { display: flex; gap: 8px; margin-top: 16px; }
+  .nav-link { margin-bottom: 0; padding: 10px 16px; }
+  .sidebar-caption, .sidebar-note, .account-name { display: none; }
+  .topbar { height: 68px; padding: 0 16px; }
+  .page-content { padding: 20px 16px; }
+  .page-heading { flex-direction: column; align-items: flex-start; }
+  .login-page { grid-template-columns: 1fr; }
+  .login-story { padding: 28px; }
+  .login-story .brand { margin-bottom: 36px; }
+  .story-footer { display: none; }
+  .login-panel { padding: 32px 24px; }
+}
+
