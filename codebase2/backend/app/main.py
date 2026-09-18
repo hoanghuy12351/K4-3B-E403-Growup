@@ -9,6 +9,9 @@ import app.models  # noqa: F401
 from app.config import get_settings
 from app.database import Base, engine
 from app.routers.auth import router as auth_router
+from app.routers.diagnostic import router as diagnostic_router
+from app.routers.diagnostic_sessions import router as diagnostic_sessions_router
+from app.routers.classifications import router as classifications_router
 
 settings = get_settings()
 
@@ -28,6 +31,9 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 app.include_router(auth_router)
+app.include_router(diagnostic_router, prefix="/api/ai")
+app.include_router(diagnostic_sessions_router, prefix="/api")
+app.include_router(classifications_router, prefix="/api")
 
 
 @app.get("/health")

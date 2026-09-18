@@ -22,6 +22,10 @@ class DiagnosticSessionRepository(ABC):
         """Return a session or raise a stable not-found error."""
 
     @abstractmethod
+    def get_session_by_room_code(self, room_code: str) -> DiagnosticSession:
+        """Return a session by its public room code."""
+
+    @abstractmethod
     def save_response(self, response: StudentResponse) -> StudentResponse:
         """Store or replace one student's answer to one session question."""
 
@@ -47,6 +51,14 @@ class InMemoryDiagnosticSessionRepository(DiagnosticSessionRepository):
                 raise SessionNotFoundError("Diagnostic session was not found.")
             return session
 
+    def get_session_by_room_code(self, room_code: str) -> DiagnosticSession:
+        """Find a live session by its normalized public room code."""
+        with self._lock:
+            session = next((item for item in self._sessions.values() if item.room_code == room_code), None)
+            if session is None:
+                raise SessionNotFoundError("Diagnostic session was not found.")
+            return session
+
     def save_response(self, response: StudentResponse) -> StudentResponse:
         """Replace the student's earlier answer to the same question, if present."""
         with self._lock:
@@ -54,7 +66,7 @@ class InMemoryDiagnosticSessionRepository(DiagnosticSessionRepository):
             session.responses = [
                 item
                 for item in session.responses
-                if not (item.student_id == response.student_id and item.question_id == response.question_id)
+                if not (item.participant_id == response.participant_id and item.question_id == response.question_id)
             ]
             session.responses.append(response)
             return response

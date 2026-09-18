@@ -52,13 +52,28 @@ class StudentResponseRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    student_id: NonEmptyText = Field(alias="studentId")
+    participant_id: NonEmptyText = Field(alias="participantId")
     question_id: NonEmptyText = Field(alias="questionId")
     section_id: NonEmptyText = Field(alias="sectionId")
     option_id: NonEmptyText = Field(alias="optionId")
+    explanation: str | None = Field(default=None, max_length=2_000)
 
-    @field_validator("student_id", "question_id", "section_id", "option_id", mode="before")
+    @field_validator("participant_id", "question_id", "section_id", "option_id", mode="before")
     @classmethod
     def strip_identifiers(cls, value: object) -> object:
         """Reject identifiers containing only whitespace."""
         return value.strip() if isinstance(value, str) else value
+
+
+class JoinRoomRequest(BaseModel):
+    """Anonymous student entry data for a diagnostic classroom."""
+
+    model_config = ConfigDict(extra="forbid")
+    room_code: NonEmptyText = Field(alias="roomCode", min_length=4, max_length=12)
+    display_name: NonEmptyText = Field(alias="displayName", min_length=2, max_length=50)
+
+
+class CheckpointStateRequest(BaseModel):
+    """Optional request body reserved for future checkpoint controls."""
+
+    model_config = ConfigDict(extra="forbid")

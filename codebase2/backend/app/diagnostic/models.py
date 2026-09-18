@@ -18,8 +18,11 @@ class StudentResponse:
     session_id: str
     question_id: str
     section_id: str
-    student_id: str
+    participant_id: str
     option_id: str
+    explanation: str | None = None
+    correct: bool = False
+    classification: dict[str, object] | None = None
     submitted_at: str = field(default_factory=utc_now)
 
     def to_dict(self) -> dict[str, str]:
@@ -29,8 +32,11 @@ class StudentResponse:
             "sessionId": self.session_id,
             "questionId": self.question_id,
             "sectionId": self.section_id,
-            "studentId": self.student_id,
+            "participantId": self.participant_id,
             "optionId": self.option_id,
+            "explanation": self.explanation,
+            "correct": self.correct,
+            "classification": self.classification,
             "submittedAt": self.submitted_at,
         }
 
@@ -40,9 +46,13 @@ class DiagnosticSession:
     """A lecturer-created lesson diagnostic and its in-memory answer collection."""
 
     id: str
+    teacher_id: str | None
+    room_code: str
     lesson: dict[str, Any]
     sections: list[dict[str, Any]]
     expected_students: int | None
     status: str = "draft"
+    participants: dict[str, str] = field(default_factory=dict)
+    active_question_id: str | None = None
     responses: list[StudentResponse] = field(default_factory=list)
     created_at: str = field(default_factory=utc_now)

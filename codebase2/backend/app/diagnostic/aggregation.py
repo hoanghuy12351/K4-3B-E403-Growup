@@ -12,7 +12,8 @@ def _section_result(session: DiagnosticSession, section_data: dict[str, Any]) ->
     """Aggregate one section without exposing raw student identities or answers."""
     question = section_data["question"]
     section = section_data["section"]
-    responses = [item.to_dict() for item in session.responses if item.question_id == question["id"]]
+    response_objects = [item for item in session.responses if item.question_id == question["id"]]
+    responses = [item.to_dict() for item in response_objects]
     analysis = analyze_responses(question=question, responses=responses)
     response_count = analysis["totalResponses"]
     coverage = round(response_count / session.expected_students, 3) if session.expected_students else None
@@ -54,13 +55,18 @@ def _section_result(session: DiagnosticSession, section_data: dict[str, Any]) ->
         "status": status,
         "recommendation": recommendation,
         "reason": reason,
+        "understandingDistribution": {
+            label: sum(1 for item in response_objects if item.classification and item.classification.get("label") == label)
+            for label in ("understood", "partial", "misunderstood", "unclear", "teacher_review")
+        },
+        "sourceRefs": section.get("sourceRefs", []),
     }
 
 
 def build_class_summary(session: DiagnosticSession) -> dict[str, Any]:
     """Combine independent section evidence into a lecturer-facing suggestion."""
     section_results = [_section_result(session, section_data) for section_data in session.sections]
-    student_count = len({response.student_id for response in session.responses})
+    student_count = len({response.participant_id for response in session.responses})
     response_coverage = round(student_count / session.expected_students, 3) if session.expected_students else None
     needs_attention = [item for item in section_results if item["status"] == "needs_attention"]
     uncertain = [item for item in section_results if item["status"] == "uncertain"]

@@ -10,7 +10,7 @@ from app.ai.llm.errors import LLMAuthenticationError, LLMConfigurationError, LLM
 from app.ai.services.material_ingestion import MaterialIngestionError, list_available_materials
 from app.diagnostic.repository import InMemoryDiagnosticSessionRepository, SessionNotFoundError
 from app.diagnostic.service import DiagnosticSessionService, SessionValidationError
-from app.schemas.diagnostic_session import CreateDiagnosticSessionRequest, StudentResponseRequest
+from app.schemas.diagnostic_session import CreateDiagnosticSessionRequest, JoinRoomRequest, StudentResponseRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/diagnostic-sessions", tags=["Diagnostic sessions"])
@@ -53,6 +53,7 @@ def create_session(request: CreateDiagnosticSessionRequest) -> dict[str, Any]:
         )
         return {
             "sessionId": session.id,
+            "roomCode": session.room_code,
             "lesson": session.lesson,
             "sections": session.sections,
             "status": session.status,
@@ -85,7 +86,7 @@ def start_session(session_id: str) -> dict[str, str]:
     """Allow the lecturer to mark a reviewed draft as active for students."""
     try:
         session = service.start_session(session_id)
-        return {"sessionId": session.id, "status": session.status}
+        return {"sessionId": session.id, "roomCode": session.room_code, "status": session.status}
     except SessionNotFoundError:
         raise _not_found() from None
 
@@ -105,6 +106,52 @@ def submit_student_response(session_id: str, request: StudentResponseRequest) ->
     try:
         response = service.submit_response(session_id=session_id, **request.model_dump())
         return {"response": response.to_dict(), "answerPolicy": "latest_answer_replaces_previous"}
+    except SessionNotFoundError:
+        raise _not_found() from None
+    except SessionValidationError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_RESPONSE", "message": str(error)}}) from None
+
+
+@router.post("/{session_id}/checkpoint/{question_id}/open")
+def open_checkpoint(session_id: str, question_id: str) -> dict[str, str | None]:
+    """Make a single checkpoint visible to joined students."""
+    try:
+        session = service.open_checkpoint(session_id, question_id)
+        return {"sessionId": session.id, "status": session.status, "activeQuestionId": session.active_question_id}
+    except SessionNotFoundError:
+        raise _not_found() from None
+    except SessionValidationError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_RESPONSE", "message": str(error)}}) from None
+
+
+@router.post("/{session_id}/checkpoint/{question_id}/close")
+def close_checkpoint(session_id: str, question_id: str) -> dict[str, str | None]:
+    """Hide an active checkpoint without ending the classroom."""
+    try:
+        session = service.close_checkpoint(session_id, question_id)
+        return {"sessionId": session.id, "status": session.status, "activeQuestionId": session.active_question_id}
+    except SessionNotFoundError:
+        raise _not_found() from None
+    except SessionValidationError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_RESPONSE", "message": str(error)}}) from None
+
+
+@router.post("/rooms/join", status_code=status.HTTP_201_CREATED)
+def join_room(request: JoinRoomRequest) -> dict[str, str]:
+    """Let a student join anonymously with only a room code and display name."""
+    try:
+        return service.join_room(request.room_code, request.display_name)
+    except SessionNotFoundError:
+        raise _not_found() from None
+    except SessionValidationError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_RESPONSE", "message": str(error)}}) from None
+
+
+@router.get("/rooms/{room_code}/state")
+def room_state(room_code: str, participantId: str) -> dict[str, Any]:
+    """Return the anonymous student's polling state without private class data."""
+    try:
+        return service.room_state(room_code, participantId)
     except SessionNotFoundError:
         raise _not_found() from None
     except SessionValidationError as error:

@@ -97,7 +97,3 @@ class AnswerClassificationTool:
             raise LLMMalformedResponseError("Classification provider returned invalid data.")
         return _validate_grounding(ClassificationDecision.from_dict(result.data), rubric)
 
-    def classify(
-        self, *, question_test_id: str, concept_id: str, answer: str
-    ) -> ClassificationDecision:
-        raise UnknownConceptError("Static question rubrics are not available in the integrated classroom flow.")
