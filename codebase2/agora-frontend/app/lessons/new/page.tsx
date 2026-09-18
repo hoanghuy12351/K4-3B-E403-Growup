@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Card, Checkbox, Input, InputNumber, Spin, Steps, Tag } from "antd";
+import { Alert, Button, Card, Checkbox, Input, InputNumber, Spin, Steps, Tag, Upload } from "antd";
 import AppLayout from "@/components/Layout/AppLayout";
 import { createLiveSession, getPresetDemoCatalog, type PresetDemoCatalog } from "@/services/diagnostic";
 import { USE_MOCK } from "@/services/api";
@@ -15,6 +15,7 @@ export default function NewLessonPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [prompts, setPrompts] = useState<Record<string, string>>({});
   const [expectedStudents, setExpectedStudents] = useState(30);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +33,12 @@ export default function NewLessonPage() {
   function toggleSection(sectionId: string, checked: boolean): void {
     setSelectedIds(current => checked ? [...current, sectionId] : current.filter(id => id !== sectionId));
     setPrompts(current => ({ ...current, [sectionId]: current[sectionId] || defaultPrompt }));
+  }
+
+  function chooseDemoUpload(fileName: string): boolean {
+    setUploadedFileName(fileName);
+    setCatalog(null); setSelectedIds([]); setPrompts({}); setError(null);
+    return false;
   }
 
   async function prepareLiveClass(): Promise<void> {
@@ -56,7 +63,7 @@ export default function NewLessonPage() {
     <Card className="course-builder-card">
       <Steps current={catalog ? 1 : 0} items={[{ title: "Phân tích bài giảng" }, { title: "Chọn checkpoint" }, { title: "Bục Giảng" }]} />
       <div className="course-builder-grid">
-        <section className="builder-panel"><p className="eyebrow">BÀI GIẢNG MẪU</p><h3>AI & LLM Foundation</h3><p className="muted">Dùng slide và transcript đã được phân tích sẵn trong kho dữ liệu của dự án.</p><Button type="primary" loading={loading} onClick={() => void analyzeLesson()}>Phân tích bài giảng</Button></section>
+        <section className="builder-panel"><p className="eyebrow">BÀI GIẢNG MẪU</p><h3>AI & LLM Foundation</h3><Upload.Dragger accept=".ppt,.pptx,.pdf" maxCount={1} beforeUpload={file => chooseDemoUpload(file.name)} onRemove={() => { setUploadedFileName(null); setCatalog(null); }} className="mock-upload"><p><strong>{uploadedFileName || "Kéo thả PPTX hoặc PDF vào đây"}</strong></p><p className="muted">Chọn tệp để xem luồng tải bài giảng.</p></Upload.Dragger><p className="muted">Giao diện demo frontend: tệp được chọn không tải lên máy chủ. Dù chọn tệp nào, hệ thống vẫn dùng bài mẫu AI & LLM Foundation có sẵn.</p><Button type="primary" loading={loading} onClick={() => void analyzeLesson()}>Phân tích bài giảng mẫu</Button></section>
         <section className="builder-panel"><p className="eyebrow">QUY MÔ LỚP</p><InputNumber min={1} max={10000} value={expectedStudents} onChange={value => setExpectedStudents(value ?? 30)} /><p className="muted">Số này được dùng để đánh giá mức độ phủ phản hồi của lớp.</p></section>
       </div>
     </Card>
