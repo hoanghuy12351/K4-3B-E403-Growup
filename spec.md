@@ -205,8 +205,8 @@ Nhóm tự khai chưa đạt phần chạy trọn bộ; không loại hoặc s�
 | Lê Trọng Khánh | AI backend, provider, trace lời gọi thật và validation |
 | Đỗ Hoàng Quân | Giao diện, dùng thử, video và dry run(chạy thử trình bày) |
 
-- Willing users(người đồng ý dùng thử): **chưa có tên/log trong nhánh hiện tại**;
-  phải bổ sung đúng người thật, không điền giả.
+- Willing users(người đồng ý dùng thử), đều là học viên khóa 4:
+  **Nguyễn Xuân Trường**, **Trần Cao Quốc Định** và **Nguyễn Thái Lương**.
 - Validation plan(kế hoạch dùng thử): giao 1 coach tạo phiên từ một phần bài; 2–5
   người ngoài nhóm đóng vai học viên; quan sát thời gian tạo phiên, chỗ kẹt, cách
   coach đọc báo cáo và quyết định cuối; ghi quote nguyên văn và thay đổi vào §9.
@@ -229,7 +229,7 @@ Nhóm tự khai chưa đạt phần chạy trọn bộ; không loại hoặc s�
 4. PDF hiện ánh xạ sang nội dung mẫu; chưa trích xuất nội dung PDF thật.
 5. Giảng viên mới xem draft, chưa sửa trực tiếp câu hỏi/đáp án trên UI.
 6. Phiên và phản hồi lưu trong memory, mất khi backend restart.
-7. Chưa có feedback log từ người ngoài nhóm và chưa xác nhận danh sách willing user.
+7. Đã xác nhận ba willing users; chưa có feedback log từ vòng dùng thử thực tế.
 
 Sau CP4 nhóm chỉ sửa lỗi, chạy đo, validation và hoàn thiện demo trong lát cắt này;
 không thêm feature(tính năng) mới.
