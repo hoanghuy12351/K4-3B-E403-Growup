@@ -10,7 +10,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.ai.services.demo_checkpoint_catalog import build_demo_session_sections, list_demo_sections  # noqa: E402
 from app.ai.services.demo_slide_analysis import get_preanalyzed_section  # noqa: E402
-from app.ai.llm.models import LLMDiagnosticResult  # noqa: E402
+from app.ai.llm.errors import LLMProviderError  # noqa: E402
+from app.ai.llm.models import ProviderResult  # noqa: E402
 from app.diagnostic import service as diagnostic_service  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -155,50 +156,130 @@ def test_demo_endpoints_require_teacher_and_reject_unknown_section() -> None:
         assert response.json()["detail"]["error"]["code"] == "DEMO_SECTION_NOT_FOUND"
 
 
-def test_agent_generation_uses_preanalyzed_data_without_runtime_parsing(monkeypatch) -> None:
-    captured: list[dict] = []
-
-    def fake_generation(**kwargs):
-        captured.append(kwargs)
-        source = kwargs["teaching_context"]["allowedSourceRefs"][0]
-        return LLMDiagnosticResult.model_validate({
+def _batch_payload(count: int, source: dict, *, duplicate: bool = False, invalid_source: bool = False) -> dict:
+    questions = []
+    for index in range(1, count + 1):
+        questions.append({
+            "id": f"provider-{index}",
             "topic": "AI & LLM Foundation",
-            "concepts": ["attention", "context management"],
+            "concept": "context management",
+            "question": "Which context strategy is most appropriate?" if duplicate else f"Which context strategy is most appropriate in case {index}?",
             "learningObjective": "Explain why relevant context matters.",
-            "misconceptions": [{"id": "m-attention-02", "concept": "context management", "statement": "More context is always better.", "evidenceTurnIds": []}],
-            "question": {
-                "id": "provider-id", "topic": "AI & LLM Foundation", "concept": "context management",
-                "question": "Which context strategy is most appropriate?", "learningObjective": "Explain why relevant context matters.",
-                "source": [source],
-                "options": [
-                    {"id": "A", "text": "Keep the context relevant and concise.", "correct": True, "misconceptionId": None},
-                    {"id": "B", "text": "Always include all available context.", "correct": False, "misconceptionId": "m-attention-02"},
-                    {"id": "C", "text": "Ignore the important task instruction.", "correct": False, "misconceptionId": "m-attention-02"},
-                    {"id": "D", "text": "Assume context is permanent memory.", "correct": False, "misconceptionId": "m-attention-02"},
-                ],
-            },
-        }), {"mode": "llm", "provider": "test", "model": "test-model", "latencyMs": 1, "fallbackUsed": False, "fallbackReason": None, "retryCount": 0, "usage": None}
+            "source": [{"type": source["type"], "id": "invented-source" if invalid_source else source["id"]}],
+            "options": [
+                {"id": "A", "text": "Keep the context relevant and concise.", "correct": True, "misconceptionId": None},
+                {"id": "B", "text": "Always include all available context.", "correct": False, "misconceptionId": "m-attention-02"},
+                {"id": "C", "text": "Ignore the task instruction.", "correct": False, "misconceptionId": "m-attention-02"},
+                {"id": "D", "text": "Treat context as permanent memory.", "correct": False, "misconceptionId": "m-attention-02"},
+            ],
+        })
+    return {"interpretedRequest": {"questionCount": count, "difficulty": "medium", "style": "scenario", "focus": "misconceptions"}, "questions": questions}
 
-    def fail(*args, **kwargs):
-        raise AssertionError("Demo generation must not parse raw lesson files")
 
+class _BatchProvider:
+    def __init__(self, payload: dict | Exception) -> None:
+        self.payload = payload
+        self.calls = 0
+
+    def generate_structured(self, **kwargs) -> ProviderResult:
+        self.calls += 1
+        if isinstance(self.payload, Exception):
+            raise self.payload
+        return ProviderResult(data=self.payload, provider="test", model="test-model", latency_ms=1)
+
+
+def _generate_with_provider(monkeypatch, prompt: str, provider: _BatchProvider):
+    analysis = get_preanalyzed_section("attention-context")
     monkeypatch.setenv("AI_MODE", "llm")
-    monkeypatch.setattr("app.ai.services.demo_slide_analysis.generate_llm_diagnostic", fake_generation)
-    monkeypatch.setattr("app.ai.services.slide_evidence.load_slide_evidence", fail)
-    monkeypatch.setattr("app.ai.services.transcript_ingestion.parse_transcript_file", fail)
+    monkeypatch.setattr("app.ai.services.llm_checkpoint_batch_service.create_provider", lambda settings: provider)
     with TestClient(app) as client:
         _register_teacher(client)
-        response = client.post("/api/teaching-agent/demo/generate", json={
-            "sectionId": "attention-context", "teacherRequest": "Create medium scenario questions.", "questionCount": 3, "expectedStudents": 30,
+        return client.post("/api/teaching-agent/demo/generate", json={"sectionId": "attention-context", "teacherRequest": prompt, "expectedStudents": 30})
+
+
+def test_agent_generation_uses_one_batch_provider_call(monkeypatch) -> None:
+    analysis = get_preanalyzed_section("attention-context")
+    provider = _BatchProvider(_batch_payload(5, analysis["allowedSourceRefs"][0]))
+    response = _generate_with_provider(monkeypatch, "Tạo 5 câu mức trung bình, tập trung vào misconception.", provider)
+    assert response.status_code == 201
+    payload = response.json()
+    assert provider.calls == 1
+    assert len(payload["checkpoints"]) == 5
+    assert payload["generation"]["interpretedRequest"]["questionCount"] == 5
+    assert payload["generation"]["fallbackUsed"] is False
+    assert payload["checkpoints"][0]["sectionId"] == "attention-context-q01"
+    assert "correct" not in str(payload["checkpoints"])
+
+
+def test_generated_checkpoint_still_works_in_the_classroom_workflow(monkeypatch) -> None:
+    analysis = get_preanalyzed_section("attention-context")
+    provider = _BatchProvider(_batch_payload(1, analysis["allowedSourceRefs"][0]))
+    monkeypatch.setenv("AI_MODE", "llm")
+    monkeypatch.setattr("app.ai.services.llm_checkpoint_batch_service.create_provider", lambda settings: provider)
+    with TestClient(app) as client:
+        _register_teacher(client)
+        created = client.post("/api/teaching-agent/demo/generate", json={"sectionId": "attention-context", "teacherRequest": "Tạo một câu.", "expectedStudents": 1})
+        assert created.status_code == 201
+        payload = created.json()
+        question = payload["checkpoints"][0]
+        assert question["originalSectionId"] == "attention-context"
+        assert client.post(f"/api/diagnostic-sessions/{payload['sessionId']}/start").status_code == 200
+        joined = client.post("/api/diagnostic-sessions/rooms/join", json={"roomCode": payload["roomCode"], "displayName": "Student"})
+        participant_id = joined.json()["participantId"]
+        assert client.post(f"/api/diagnostic-sessions/{payload['sessionId']}/checkpoint/{question['id']}/open").status_code == 200
+        answered = client.post(f"/api/diagnostic-sessions/{payload['sessionId']}/responses", json={
+            "participantId": participant_id,
+            "questionId": question["id"],
+            "sectionId": question["sectionId"],
+            "optionId": "A",
         })
-        assert response.status_code == 201
-        payload = response.json()
-        assert payload["status"] == "draft"
-        assert payload["generation"]["mode"] == "llm_preanalyzed_demo"
-        assert payload["generation"]["fallbackUsed"] is False
-        assert [item["id"] for item in payload["checkpoints"]] == ["attention-context-q01", "attention-context-q02", "attention-context-q03"]
-        assert "correct" not in str(payload["checkpoints"])
-    assert len(captured) == 3
-    assert all(item["teacher_request"] == "Create medium scenario questions." for item in captured)
-    assert "PREVIOUS_QUESTIONS" in captured[1]["variation_instruction"]
-    assert "Which context strategy is most appropriate?" in captured[1]["variation_instruction"]
+        assert answered.status_code == 201
+        assert client.get(f"/api/diagnostic-sessions/{payload['sessionId']}/summary").status_code == 200
+
+
+def test_agent_generation_accepts_llm_interpreted_single_and_default_counts(monkeypatch) -> None:
+    analysis = get_preanalyzed_section("attention-context")
+    one_provider = _BatchProvider(_batch_payload(1, analysis["allowedSourceRefs"][0]))
+    one_response = _generate_with_provider(monkeypatch, "Cho tôi một câu kiểm tra nhanh.", one_provider)
+    assert one_response.status_code == 201
+    assert len(one_response.json()["checkpoints"]) == 1
+
+    default_provider = _BatchProvider(_batch_payload(3, analysis["allowedSourceRefs"][0]))
+    default_response = _generate_with_provider(monkeypatch, "Tạo vài câu hỏi cho phần này.", default_provider)
+    assert default_response.status_code == 201
+    assert len(default_response.json()["checkpoints"]) == 3
+
+
+def test_agent_generation_enforces_llm_count_bound(monkeypatch) -> None:
+    analysis = get_preanalyzed_section("attention-context")
+    provider = _BatchProvider(_batch_payload(10, analysis["allowedSourceRefs"][0]))
+    response = _generate_with_provider(monkeypatch, "Tạo 30 câu.", provider)
+    assert response.status_code == 201
+    assert len(response.json()["checkpoints"]) == 10
+    assert response.json()["generation"]["interpretedRequest"]["questionCount"] == 10
+
+
+def test_agent_generation_returns_real_provider_failure_without_fallback(monkeypatch) -> None:
+    response = _generate_with_provider(monkeypatch, "Tạo một câu.", _BatchProvider(LLMProviderError("safe failure")))
+    assert response.status_code == 502
+    assert response.json()["detail"]["error"]["code"] == "AI_PROVIDER_ERROR"
+
+
+def test_agent_generation_rejects_invalid_sources_and_duplicate_questions(monkeypatch) -> None:
+    analysis = get_preanalyzed_section("attention-context")
+    invalid_source = _generate_with_provider(monkeypatch, "Tạo một câu.", _BatchProvider(_batch_payload(1, analysis["allowedSourceRefs"][0], invalid_source=True)))
+    assert invalid_source.status_code == 502
+    assert invalid_source.json()["detail"]["error"]["code"] == "AI_OUTPUT_INVALID"
+
+    duplicate = _generate_with_provider(monkeypatch, "Tạo hai câu.", _BatchProvider(_batch_payload(2, analysis["allowedSourceRefs"][0], duplicate=True)))
+    assert duplicate.status_code == 502
+    assert duplicate.json()["detail"]["error"]["code"] == "AI_OUTPUT_INVALID"
+
+
+def test_agent_generation_rejects_deterministic_mode(monkeypatch) -> None:
+    monkeypatch.setenv("AI_MODE", "deterministic")
+    with TestClient(app) as client:
+        _register_teacher(client)
+        response = client.post("/api/teaching-agent/demo/generate", json={"sectionId": "attention-context", "teacherRequest": "Tạo một câu."})
+    assert response.status_code == 503
+    assert response.json()["detail"]["error"]["code"] == "AI_PROVIDER_CONFIGURATION_ERROR"

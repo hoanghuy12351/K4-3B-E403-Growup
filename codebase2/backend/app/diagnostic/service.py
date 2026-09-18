@@ -148,15 +148,21 @@ class DiagnosticSessionService:
         session = self.repository.get_session_by_room_code(room_code.strip().upper())
         if participant_id not in session.participants:
             raise SessionValidationError("The participant is not joined to this room.")
-        active = next((item for item in session.sections if item["question"]["id"] == session.active_question_id), None)
-        question = None
-        if active:
-            question = {
+        active_sections = [item for item in session.sections if item["question"]["id"] in session.active_question_ids]
+        questions = []
+        for active in active_sections:
+            questions.append({
                 **{key: value for key, value in active["question"].items() if key not in {"options", "correct", "rubric"}},
                 "sectionId": active["section"]["id"],
                 "options": [{key: value for key, value in option.items() if key not in {"correct", "misconceptionId"}} for option in active["question"]["options"]],
-            }
-        return {"sessionId": session.id, "roomCode": session.room_code, "status": session.status, "activeQuestion": question}
+            })
+        return {
+            "sessionId": session.id,
+            "roomCode": session.room_code,
+            "status": session.status,
+            "activeQuestion": questions[0] if questions else None,
+            "activeQuestions": questions,
+        }
 
     def open_checkpoint(self, session_id: str, question_id: str) -> DiagnosticSession:
         """Open exactly one generated checkpoint for a live classroom."""
@@ -167,20 +173,42 @@ class DiagnosticSessionService:
             raise SessionValidationError("The question does not belong to this diagnostic session.")
         session.status = "live"
         session.active_question_id = question_id
+        session.active_question_ids = [question_id]
+        return session
+
+    def open_all_checkpoints(self, session_id: str) -> DiagnosticSession:
+        """Open every generated checkpoint so students can answer the full set."""
+        session = self.get_session(session_id)
+        if session.status not in {"ready", "live"}:
+            raise SessionValidationError("Start the classroom before opening checkpoints.")
+        question_ids = [str(item["question"]["id"]) for item in session.sections]
+        if not question_ids:
+            raise SessionValidationError("This diagnostic session has no checkpoints.")
+        session.status = "live"
+        session.active_question_id = question_ids[0]
+        session.active_question_ids = question_ids
         return session
 
     def close_checkpoint(self, session_id: str, question_id: str) -> DiagnosticSession:
         """Hide the active checkpoint while leaving the classroom live."""
         session = self.get_session(session_id)
-        if session.active_question_id != question_id:
+        if question_id not in session.active_question_ids:
             raise SessionValidationError("The requested checkpoint is not open.")
+        session.active_question_ids = [item for item in session.active_question_ids if item != question_id]
+        session.active_question_id = session.active_question_ids[0] if session.active_question_ids else None
+        return session
+
+    def close_all_checkpoints(self, session_id: str) -> DiagnosticSession:
+        """Hide every checkpoint while preserving all submitted responses."""
+        session = self.get_session(session_id)
         session.active_question_id = None
+        session.active_question_ids = []
         return session
 
     def submit_response(self, session_id: str, participant_id: str, question_id: str, section_id: str, option_id: str, explanation: str | None = None) -> StudentResponse:
         """Validate session ownership then save the student's latest answer to that question."""
         session = self.get_session(session_id)
-        if session.status != "live" or session.active_question_id != question_id:
+        if session.status != "live" or question_id not in session.active_question_ids:
             raise SessionValidationError("This checkpoint is not open for responses.")
         if participant_id not in session.participants:
             raise SessionValidationError("The participant is not joined to this classroom.")
@@ -236,9 +264,10 @@ class DiagnosticSessionService:
             "lesson": {"title": session.lesson["title"], "sourceId": session.lesson["sourceId"]},
             "status": session.status,
             "activeQuestionId": session.active_question_id,
+            "activeQuestionIds": session.active_question_ids,
             "createdAt": session.created_at,
             "sections": [
-                {"id": item["section"]["id"], "title": item["section"]["title"], "order": item["section"]["order"], "sourceRefs": item["section"]["sourceRefs"], "concepts": item["concepts"]}
+                {"id": item["section"]["id"], "originalSectionId": item["section"].get("originalSectionId"), "title": item["section"]["title"], "order": item["section"]["order"], "sourceRefs": item["section"]["sourceRefs"], "concepts": item["concepts"]}
                 for item in session.sections
             ],
             "questions": [

@@ -44,6 +44,22 @@ class LLMDiagnosticResult(StrictModel):
     question: DiagnosticQuestion
 
 
+class InterpretedTeacherRequest(StrictModel):
+    """The bounded assessment requirements inferred from a lecturer prompt."""
+
+    questionCount: int = Field(ge=1, le=10)
+    difficulty: str | None = None
+    style: str | None = None
+    focus: str | None = None
+
+
+class LLMCheckpointBatchResult(StrictModel):
+    """All checkpoints for one Teaching Agent generation request."""
+
+    interpretedRequest: InterpretedTeacherRequest
+    questions: list[DiagnosticQuestion] = Field(min_length=1, max_length=10)
+
+
 class ProviderResult(StrictModel):
     data: dict
     provider: str

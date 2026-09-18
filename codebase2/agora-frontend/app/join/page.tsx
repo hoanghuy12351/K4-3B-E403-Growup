@@ -7,10 +7,13 @@ import type { StudentJoinInput } from "@/types/user";
 import { getRoomState, joinRoom, submitStudentResponse, type ActiveQuestion, type RoomJoinResult } from "@/services/diagnostic";
 
 type JoinedStudent = StudentJoinInput & RoomJoinResult;
+type DraftAnswer = { optionId?: string; explanation: string };
 
 export default function JoinPage() {
   const [joined, setJoined] = useState<JoinedStudent | null>(null);
-  const [question, setQuestion] = useState<ActiveQuestion | null>(null);
+  const [questions, setQuestions] = useState<ActiveQuestion[]>([]);
+  const [answers, setAnswers] = useState<Record<string, DraftAnswer>>({});
+  const [submittedIds, setSubmittedIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -20,7 +23,7 @@ export default function JoinPage() {
     const poll = async (): Promise<void> => {
       try {
         const state = await getRoomState(joined.roomCode, joined.participantId);
-        if (active) setQuestion(state.activeQuestion);
+        if (active) setQuestions(state.activeQuestions ?? (state.activeQuestion ? [state.activeQuestion] : []));
       } catch (reason) {
         if (active) setError(reason instanceof Error ? reason.message : "Không thể cập nhật trạng thái lớp.");
       }
@@ -32,7 +35,7 @@ export default function JoinPage() {
 
   if (joined) return <main className="join-page"><section className="join-shell"><Link className="brand" href="/"><span className="brand-mark">G</span>Growup</Link>
     <Card className="join-success"><Tag color="green">Đã vào lớp</Tag><h1>Chào {joined.displayName}</h1>{error && <Alert type="error" showIcon description={error} style={{ marginBottom: 16 }} />}
-      {!question ? <><p>Đã vào lớp với mã <strong>{joined.roomCode}</strong>. Đang chờ giảng viên mở checkpoint...</p><Alert type="info" showIcon title="Bạn không cần tài khoản" description="Tên hiển thị chỉ dùng trong lượt kiểm tra này." /></> : <StudentQuestion key={question.id} joined={joined} question={question} submitting={submitting} setSubmitting={setSubmitting} setError={setError} />}
+      {questions.length === 0 ? <><p>Đã vào lớp với mã <strong>{joined.roomCode}</strong>. Đang chờ giảng viên mở checkpoint...</p><Alert type="info" showIcon title="Bạn không cần tài khoản" description="Tên hiển thị chỉ dùng trong lượt kiểm tra này." /></> : <StudentQuestionSet joined={joined} questions={questions} answers={answers} submittedIds={submittedIds} submitting={submitting} setAnswers={setAnswers} setSubmittedIds={setSubmittedIds} setSubmitting={setSubmitting} setError={setError} />}
       <Button style={{ marginTop: 20 }} onClick={() => setJoined(null)}>Đổi mã hoặc tên</Button>
     </Card></section></main>;
 
@@ -46,20 +49,29 @@ export default function JoinPage() {
     </Card><Link className="back-link" href="/">Quay lại trang giới thiệu</Link></section></main>;
 }
 
-function StudentQuestion({ joined, question, submitting, setSubmitting, setError }: { joined: JoinedStudent; question: ActiveQuestion; submitting: boolean; setSubmitting: (value: boolean) => void; setError: (value: string | null) => void }) {
-  const [optionId, setOptionId] = useState<string>();
-  const [explanation, setExplanation] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const submit = async (): Promise<void> => {
-    if (!optionId) return;
+function StudentQuestionSet({ joined, questions, answers, submittedIds, submitting, setAnswers, setSubmittedIds, setSubmitting, setError }: { joined: JoinedStudent; questions: ActiveQuestion[]; answers: Record<string, DraftAnswer>; submittedIds: string[]; submitting: boolean; setAnswers: React.Dispatch<React.SetStateAction<Record<string, DraftAnswer>>>; setSubmittedIds: React.Dispatch<React.SetStateAction<string[]>>; setSubmitting: (value: boolean) => void; setError: (value: string | null) => void }) {
+  const answeredQuestions = questions.filter(question => answers[question.id]?.optionId);
+  const allQuestionsAnswered = answeredQuestions.length === questions.length;
+  const updateAnswer = (questionId: string, change: Partial<DraftAnswer>): void => {
+    setAnswers(current => {
+      const previous = current[questionId];
+      return { ...current, [questionId]: { ...previous, ...change, explanation: change.explanation ?? previous?.explanation ?? "" } };
+    });
+  };
+  const submitAllAnswers = async (): Promise<void> => {
+    if (!allQuestionsAnswered) return;
     setSubmitting(true); setError(null);
-    try { await submitStudentResponse(joined.sessionId, { participantId: joined.participantId, questionId: question.id, sectionId: question.sectionId, optionId, explanation: explanation.trim() || undefined }); setSubmitted(true); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể gửi câu trả lời."); }
+    try {
+      await Promise.all(questions.map(question => submitStudentResponse(joined.sessionId, {
+        participantId: joined.participantId, questionId: question.id, sectionId: question.sectionId,
+        optionId: answers[question.id].optionId as string, explanation: answers[question.id].explanation.trim() || undefined,
+      })));
+      setSubmittedIds(current => Array.from(new Set([...current, ...questions.map(question => question.id)])));
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể gửi câu trả lời."); }
     finally { setSubmitting(false); }
   };
-  return <><p className="eyebrow">CHECKPOINT ĐANG MỞ</p><h2>{question.question}</h2><Radio.Group value={optionId} onChange={event => setOptionId(event.target.value)} style={{ display: "grid", gap: 10, width: "100%" }}>{question.options.map(option => <Radio key={option.id} value={option.id}>{option.id}. {option.text}</Radio>)}</Radio.Group>
-    <Input.TextArea value={explanation} onChange={event => setExplanation(event.target.value)} placeholder="Giải thích ngắn (không bắt buộc)" maxLength={2000} autoSize={{ minRows: 3 }} style={{ marginTop: 16 }} />
-    {submitted ? <Alert type="success" showIcon title="Đã gửi câu trả lời" description="Bạn có thể thay đổi câu trả lời khi checkpoint vẫn còn mở." style={{ marginTop: 16 }} /> : null}
-    <Button type="primary" block size="large" disabled={!optionId} loading={submitting} onClick={() => void submit()} style={{ marginTop: 16 }}>{submitted ? "Cập nhật câu trả lời" : "Gửi câu trả lời"}</Button>
-  </>;
+  return <><p className="eyebrow">{questions.length} CHECKPOINT ĐANG MỞ</p><p>Chọn đáp án cho tất cả câu hỏi. Nút gửi chung sẽ mở khi bạn đã trả lời đầy đủ.</p>{questions.map(question => <div className="student-question" key={question.id}><h2>{question.question}</h2><Radio.Group value={answers[question.id]?.optionId} onChange={event => updateAnswer(question.id, { optionId: event.target.value })} style={{ display: "grid", gap: 10, width: "100%" }}>{question.options.map(option => <Radio key={option.id} value={option.id}>{option.id}. {option.text}</Radio>)}</Radio.Group>
+    <Input.TextArea value={answers[question.id]?.explanation ?? ""} onChange={event => updateAnswer(question.id, { explanation: event.target.value })} placeholder="Giải thích ngắn (không bắt buộc)" maxLength={2000} autoSize={{ minRows: 3 }} style={{ marginTop: 16 }} />
+    {submittedIds.includes(question.id) ? <Alert type="success" showIcon title="Đã gửi câu trả lời" description="Bạn vẫn có thể thay đổi đáp án và gửi lại khi checkpoint còn mở." style={{ marginTop: 16 }} /> : null}
+  </div>)}<div className="student-submit-all"><strong>Đã trả lời {answeredQuestions.length}/{questions.length} câu</strong><Button type="primary" size="large" disabled={!allQuestionsAnswered} loading={submitting} onClick={() => void submitAllAnswers()}>Gửi tất cả câu trả lời</Button></div></>;
 }

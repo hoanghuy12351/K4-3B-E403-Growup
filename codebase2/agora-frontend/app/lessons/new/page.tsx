@@ -52,7 +52,7 @@ export default function NewLessonPage() {
     setGenerating(true);
     setError(null);
     try {
-      setResult(await generateAgentCheckpoints({ sectionId: selected.id, teacherRequest: teacherRequest.trim(), questionCount: 3, expectedStudents }));
+      setResult(await generateAgentCheckpoints({ sectionId: selected.id, teacherRequest: teacherRequest.trim(), expectedStudents }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể tạo checkpoint. Vui lòng thử lại.");
     } finally {

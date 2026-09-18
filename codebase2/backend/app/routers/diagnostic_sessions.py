@@ -155,6 +155,30 @@ def close_checkpoint(session_id: str, question_id: str, teacher: Annotated[Teach
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_RESPONSE", "message": str(error)}}) from None
 
 
+@router.post("/{session_id}/checkpoints/open-all")
+def open_all_checkpoints(session_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+    """Make every generated checkpoint visible to joined students."""
+    try:
+        service.require_teacher(session_id, teacher.id)
+        session = service.open_all_checkpoints(session_id)
+        return {"sessionId": session.id, "status": session.status, "activeQuestionIds": session.active_question_ids}
+    except SessionNotFoundError:
+        raise _not_found() from None
+    except SessionValidationError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_RESPONSE", "message": str(error)}}) from None
+
+
+@router.post("/{session_id}/checkpoints/close-all")
+def close_all_checkpoints(session_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+    """Hide all open checkpoints without discarding classroom evidence."""
+    try:
+        service.require_teacher(session_id, teacher.id)
+        session = service.close_all_checkpoints(session_id)
+        return {"sessionId": session.id, "status": session.status, "activeQuestionIds": session.active_question_ids}
+    except SessionNotFoundError:
+        raise _not_found() from None
+
+
 @router.post("/rooms/join", status_code=status.HTTP_201_CREATED)
 def join_room(request: JoinRoomRequest) -> dict[str, str]:
     """Let a student join anonymously with only a room code and display name."""

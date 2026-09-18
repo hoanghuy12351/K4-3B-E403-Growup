@@ -25,7 +25,6 @@ class GenerateAgentCheckpointRequest(BaseModel):
 
     section_id: str = Field(alias="sectionId", min_length=1, max_length=100)
     teacher_request: str = Field(alias="teacherRequest", min_length=1, max_length=2_000)
-    question_count: int = Field(default=3, alias="questionCount", ge=1, le=3)
     expected_students: int | None = Field(default=None, alias="expectedStudents", ge=1, le=10_000)
 
     @field_validator("section_id", "teacher_request", mode="before")

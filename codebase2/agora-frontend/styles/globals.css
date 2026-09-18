@@ -306,6 +306,9 @@ body { background: #fff; color: var(--ink); font-family: "Nunito", "Segoe UI", A
 .section-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
 .agent-composer { margin-top: 24px; padding-top: 20px; border-top: 2px solid var(--line); }
 .composer-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-weight: 800; }
+.student-question { margin-top: 18px; padding: 18px; border: 2px solid var(--line); border-radius: 16px; background: #fff; }
+.student-question h2 { margin-top: 0; font-size: 20px; }
+.student-submit-all { position: sticky; bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 14px; border: 2px solid #d3f4b2; border-radius: 16px; background: #f7fff0; }
 .dashboard-step-top { display: flex; align-items: flex-start; justify-content: space-between; }
 .dashboard-step-top .step-bubble { margin-bottom: 20px; }
 .dashboard-step-top b { color: #c8c8c8; }
