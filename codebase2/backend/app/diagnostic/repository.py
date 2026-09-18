@@ -27,7 +27,7 @@ class DiagnosticSessionRepository(ABC):
 
     @abstractmethod
     def save_response(self, response: StudentResponse) -> StudentResponse:
-        """Store or replace one student's answer to one session question."""
+        """Store or replace one student's answer inside the same checkpoint run."""
 
 
 class InMemoryDiagnosticSessionRepository(DiagnosticSessionRepository):
@@ -66,7 +66,13 @@ class InMemoryDiagnosticSessionRepository(DiagnosticSessionRepository):
             session.responses = [
                 item
                 for item in session.responses
-                if not (item.participant_id == response.participant_id and item.question_id == response.question_id)
+                if not (
+                    item.participant_id == response.participant_id
+                    and item.checkpoint_run_id == response.checkpoint_run_id
+                )
             ]
             session.responses.append(response)
+            run = session.checkpoint_runs.get(response.checkpoint_run_id)
+            if run is not None:
+                run.response_version += 1
             return response

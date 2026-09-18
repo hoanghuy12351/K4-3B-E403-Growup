@@ -101,3 +101,22 @@ Không có API đăng ký tài khoản học viên; học viên sẽ tham gia l�
 
 Bộ kiểm thử dùng SQLite(cơ sở dữ liệu gọn trong bộ nhớ); môi trường chạy thật dùng PostgreSQL.
 
+## Luồng checkpoint và báo cáo lớp
+
+Mỗi lần giảng viên mở một câu hỏi, backend tạo một `checkpointRunId` riêng. Học viên
+chỉ gửi `optionId`; backend tự đối chiếu đáp án và lưu tín hiệu misconception mà
+không gọi AI cho từng học viên.
+
+| Phương thức | Đường dẫn | Mục đích |
+|---|---|---|
+| `POST` | `/api/diagnostic-sessions/{sessionId}/checkpoint/{questionId}/open` | Mở một lượt thu câu trả lời |
+| `POST` | `/api/diagnostic-sessions/{sessionId}/responses` | Ghi nhận lựa chọn mới nhất của học viên |
+| `POST` | `/api/diagnostic-sessions/{sessionId}/checkpoint/{questionId}/close` | Khóa lượt trả lời và bắt đầu tổng hợp |
+| `GET` | `/api/diagnostic-sessions/{sessionId}/checkpoints/{checkpointRunId}/analysis` | Lấy trạng thái hoặc báo cáo hoàn tất |
+
+API đóng checkpoint trả `202 Accepted` với trạng thái `analyzing`. Frontend dùng API
+`analysis` để polling cho đến khi trạng thái là `completed` hoặc `failed`. Báo cáo
+gồm số liệu do server tính, tình trạng lớp, misconception nổi bật và khuyến nghị
+không ràng buộc cho giảng viên. AI chỉ diễn giải dữ liệu tổng hợp, không nhận danh
+tính học viên và không được thay đổi count, rate hoặc đáp án đúng.
+

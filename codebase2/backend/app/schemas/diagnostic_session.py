@@ -56,7 +56,6 @@ class StudentResponseRequest(BaseModel):
     question_id: NonEmptyText = Field(alias="questionId")
     section_id: NonEmptyText = Field(alias="sectionId")
     option_id: NonEmptyText = Field(alias="optionId")
-    explanation: str | None = Field(default=None, max_length=2_000)
 
     @field_validator("participant_id", "question_id", "section_id", "option_id", mode="before")
     @classmethod

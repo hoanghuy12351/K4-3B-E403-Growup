@@ -1,116 +1,110 @@
-"""Provider-neutral classification domain objects."""
+"""Domain objects for analysing a server-owned multiple-choice selection.
+
+Learners only submit an option ID. Correctness and misconception mapping are
+therefore deterministic facts from the generated question, not judgements made
+by an LLM.
+"""
 
 from dataclasses import dataclass
-from typing import Literal
-
-
-Label = Literal["understood", "partial", "misunderstood", "unclear", "teacher_review"]
-ALLOWED_LABELS = frozenset(
-    {"understood", "partial", "misunderstood", "unclear", "teacher_review"}
-)
 
 
 class ClassificationError(RuntimeError):
-    """Base error for the AI classification flow."""
+    """Base error for the answer-analysis flow."""
 
 
 class UnknownConceptError(ClassificationError):
-    """The requested question/concept pair has no server-owned rubric."""
+    """The requested question has no complete server-owned rubric."""
 
 
 class InvalidProviderOutputError(ClassificationError):
-    """The provider returned content that violates the grounded contract."""
+    """The provider returned analysis that violates the grounded contract."""
 
 
 @dataclass(frozen=True)
-class ClassificationDecision:
-    label: Label
-    misconceptions: tuple[str, ...]
-    source_refs: tuple[str, ...]
-    needs_teacher_review: bool
-    security_event: str | None = None
+class OptionRubric:
+    """One trusted option from a generated multiple-choice question."""
 
-    @classmethod
-    def from_dict(cls, payload: dict[str, object]) -> "ClassificationDecision":
-        label = payload.get("label")
-        misconceptions = payload.get("misconceptions")
-        source_refs = payload.get("source_refs")
-        needs_review = payload.get("needs_teacher_review")
-        security_event = payload.get("security_event")
-        if label not in ALLOWED_LABELS:
-            raise InvalidProviderOutputError(f"Invalid label from provider: {label!r}")
-        if not isinstance(misconceptions, list) or not all(
-            isinstance(item, str) for item in misconceptions
-        ):
-            raise InvalidProviderOutputError("misconceptions must be a string array")
-        if not isinstance(source_refs, list) or not all(
-            isinstance(item, str) for item in source_refs
-        ):
-            raise InvalidProviderOutputError("source_refs must be a string array")
-        if not isinstance(needs_review, bool):
-            raise InvalidProviderOutputError("needs_teacher_review must be boolean")
-        if security_event not in {None, "prompt_injection_detected"}:
-            raise InvalidProviderOutputError("Invalid security_event from provider")
-        return cls(
-            label=label,  # type: ignore[arg-type]
-            misconceptions=tuple(misconceptions),
-            source_refs=tuple(source_refs),
-            needs_teacher_review=needs_review,
-            security_event=security_event,  # type: ignore[arg-type]
-        )
-
-    def to_dict(self) -> dict[str, object]:
-        result: dict[str, object] = {
-            "label": self.label,
-            "misconceptions": list(self.misconceptions),
-            "source_refs": list(self.source_refs),
-            "needs_teacher_review": self.needs_teacher_review,
-        }
-        if self.security_event is not None:
-            result["security_event"] = self.security_event
-        return result
+    id: str
+    text: str
+    correct: bool
+    misconception_id: str | None = None
 
 
 @dataclass(frozen=True)
 class ConceptRubric:
+    """Trusted question, options and evidence kept only on the server."""
+
     question_test_id: str
     concept_id: str
     question: str
     expected_evidence: tuple[str, ...]
     source_refs: tuple[str, ...]
     misconception_definitions: tuple[tuple[str, str], ...] = ()
-    citation_guidance: str = "Use every directly relevant source reference."
-    review_guidance: str = "Escalate only when the supplied sources are conflicting or insufficient."
+    options: tuple[OptionRubric, ...] = ()
+    citation_guidance: str = "Use only source references supplied by the server."
+    review_guidance: str = "Do not infer reasoning that the learner did not submit."
 
     @property
     def allowed_misconceptions(self) -> frozenset[str]:
         return frozenset(item[0] for item in self.misconception_definitions)
 
+    def option(self, option_id: str) -> OptionRubric:
+        """Return a trusted option or reject an ID outside this question."""
+
+        match = next((item for item in self.options if item.id == option_id), None)
+        if match is None:
+            raise UnknownConceptError("The selected option does not belong to this question.")
+        return match
 
 def rubric_from_diagnostic(section_data: dict[str, object]) -> ConceptRubric:
-    """Build a private rubric from a generated server-owned diagnostic section."""
+    """Build a private multiple-choice rubric from server-owned session data."""
+
     question = section_data.get("question")
     section = section_data.get("section")
     if not isinstance(question, dict) or not isinstance(section, dict):
         raise UnknownConceptError("Generated diagnostic data is incomplete.")
-    options = question.get("options")
-    if not isinstance(options, list):
+    raw_options = question.get("options")
+    if not isinstance(raw_options, list):
         raise UnknownConceptError("Generated diagnostic question has no options.")
-    expected = tuple(str(option.get("text", "")) for option in options if isinstance(option, dict) and option.get("correct"))
-    if not expected:
-        raise UnknownConceptError("Generated diagnostic question has no answer evidence.")
-    misconceptions = section_data.get("misconceptions")
-    misconception_items = misconceptions if isinstance(misconceptions, list) else []
+
+    options = tuple(
+        OptionRubric(
+            id=str(item.get("id", "")),
+            text=str(item.get("text", "")),
+            correct=bool(item.get("correct")),
+            misconception_id=str(item["misconceptionId"]) if item.get("misconceptionId") else None,
+        )
+        for item in raw_options
+        if isinstance(item, dict) and item.get("id") and item.get("text")
+    )
+    correct_options = [item for item in options if item.correct]
+    if len(correct_options) != 1:
+        raise UnknownConceptError("Generated diagnostic question must have exactly one correct option.")
+
+    misconception_items = section_data.get("misconceptions")
     definitions = tuple(
         (str(item.get("id")), str(item.get("statement")))
         for item in misconception_items if isinstance(item, dict) and item.get("id") and item.get("statement")
-    )
-    refs = tuple(str(item.get("id")) for item in section.get("sourceRefs", []) if isinstance(item, dict) and item.get("id"))
+    ) if isinstance(misconception_items, list) else ()
+
+    # Question sources use `id`; segmented lesson sources use `sourceId`.
+    raw_refs: list[object] = []
+    if isinstance(question.get("source"), list):
+        raw_refs.extend(question["source"])
+    if isinstance(section.get("sourceRefs"), list):
+        raw_refs.extend(section["sourceRefs"])
+    refs = tuple(dict.fromkeys(
+        str(item.get("id") or item.get("sourceId"))
+        for item in raw_refs
+        if isinstance(item, dict) and (item.get("id") or item.get("sourceId"))
+    ))
+
     return ConceptRubric(
         question_test_id=str(question.get("id", "")),
         concept_id=str(question.get("concept", "")),
         question=str(question.get("question", "")),
-        expected_evidence=expected,
+        expected_evidence=tuple(item.text for item in correct_options),
         source_refs=refs,
         misconception_definitions=definitions,
+        options=options,
     )

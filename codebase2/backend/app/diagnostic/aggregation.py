@@ -5,7 +5,88 @@ from typing import Any
 from app.ai.config import response_coverage_settings
 from app.ai.services.response_analyzer import analyze_responses
 
-from .models import DiagnosticSession
+from .models import CheckpointRun, DiagnosticSession
+
+
+def build_checkpoint_metrics(
+    session: DiagnosticSession,
+    run: CheckpointRun,
+) -> tuple[dict[str, Any], str]:
+    """Create an immutable, non-identifying snapshot for one closed run."""
+
+    section_data = next(
+        item for item in session.sections if item["question"]["id"] == run.question_id
+    )
+    question = section_data["question"]
+    responses = [
+        item for item in session.responses if item.checkpoint_run_id == run.id
+    ]
+    total = len(responses)
+    correct = sum(item.correct for item in responses)
+    correct_rate = round(correct / total, 3) if total else 0.0
+    coverage = round(total / session.expected_students, 3) if session.expected_students else None
+
+    option_distribution = []
+    for option in question.get("options", []):
+        count = sum(item.option_id == option.get("id") for item in responses)
+        option_distribution.append({
+            "optionId": option.get("id"),
+            "text": option.get("text"),
+            "count": count,
+            "ratio": round(count / total, 3) if total else 0.0,
+            "correct": bool(option.get("correct")),
+            "misconceptionId": option.get("misconceptionId"),
+        })
+
+    misconception_by_id = {
+        item.get("id"): item for item in section_data.get("misconceptions", [])
+    }
+    misconception_distribution = []
+    for misconception_id in {
+        item.misconception_id for item in responses if item.misconception_id
+    }:
+        count = sum(item.misconception_id == misconception_id for item in responses)
+        misconception_distribution.append({
+            "misconceptionId": misconception_id,
+            "statement": misconception_by_id.get(misconception_id, {}).get("statement"),
+            "count": count,
+            "ratio": round(count / total, 3) if total else 0.0,
+        })
+    misconception_distribution.sort(key=lambda item: item["count"], reverse=True)
+
+    minimum_count, minimum_coverage = response_coverage_settings()
+    insufficient = total < minimum_count or (
+        coverage is not None and coverage < minimum_coverage
+    )
+    if insufficient:
+        computed_status = "insufficient_data"
+    elif correct_rate >= 0.8:
+        computed_status = "understood"
+    elif correct_rate >= 0.6:
+        computed_status = "mixed"
+    else:
+        computed_status = "needs_attention"
+
+    metrics = {
+        "sessionId": session.id,
+        "checkpointRunId": run.id,
+        "questionId": question["id"],
+        "concept": question.get("concept"),
+        "question": question.get("question"),
+        "sourceRefs": question.get("source", []),
+        "expectedStudents": session.expected_students,
+        "respondingStudents": total,
+        "responseCoverage": coverage,
+        "correctResponses": correct,
+        "incorrectResponses": total - correct,
+        "correctRate": correct_rate,
+        "optionDistribution": option_distribution,
+        "misconceptionDistribution": misconception_distribution,
+        "minimumResponseCount": minimum_count,
+        "minimumResponseCoverage": minimum_coverage,
+        "responseVersion": run.response_version,
+    }
+    return metrics, computed_status
 
 
 def _section_result(session: DiagnosticSession, section_data: dict[str, Any]) -> dict[str, Any]:
@@ -55,9 +136,9 @@ def _section_result(session: DiagnosticSession, section_data: dict[str, Any]) ->
         "status": status,
         "recommendation": recommendation,
         "reason": reason,
-        "understandingDistribution": {
-            label: sum(1 for item in response_objects if item.classification and item.classification.get("label") == label)
-            for label in ("understood", "partial", "misunderstood", "unclear", "teacher_review")
+        "signalDistribution": {
+            signal: sum(1 for item in response_objects if item.signal == signal)
+            for signal in ("correct_choice", "known_misconception", "incorrect_choice")
         },
         "sourceRefs": section.get("sourceRefs", []),
     }

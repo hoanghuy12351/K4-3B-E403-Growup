@@ -4,7 +4,7 @@ import logging
 from typing import Annotated
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from app.ai import AISettings
 from app.ai.llm.errors import LLMAuthenticationError, LLMConfigurationError, LLMMalformedResponseError, LLMProviderError, LLMRateLimitError, LLMTimeoutError, LLMValidationError
@@ -19,6 +19,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/diagnostic-sessions", tags=["Diagnostic sessions"])
 repository = InMemoryDiagnosticSessionRepository()
 service = DiagnosticSessionService(repository)
+
+
+def _assessment_response(assessment: Any) -> dict[str, Any]:
+    """Serialize an analysis job without exposing internal exceptions."""
+    return {
+        "analysisId": assessment.id,
+        "sessionId": assessment.session_id,
+        "checkpointRunId": assessment.checkpoint_run_id,
+        "questionId": assessment.question_id,
+        "status": assessment.status,
+        "metrics": assessment.metrics or None,
+        "computedStatus": assessment.computed_status,
+        "aiAssessment": assessment.ai_assessment,
+        "errorCode": assessment.error_code,
+        "createdAt": assessment.created_at,
+        "completedAt": assessment.completed_at,
+    }
 
 
 def _not_found() -> HTTPException:
@@ -110,7 +127,15 @@ def submit_student_response(session_id: str, request: StudentResponseRequest) ->
     """Store a student's latest option selection for one validated session question."""
     try:
         response = service.submit_response(session_id=session_id, **request.model_dump())
-        return {"response": response.to_dict(), "answerPolicy": "latest_answer_replaces_previous"}
+        # Do not reveal correctness or misconception mapping while the checkpoint
+        # is still collecting answers.
+        return {
+            "responseId": response.id,
+            "checkpointRunId": response.checkpoint_run_id,
+            "status": "recorded",
+            "submittedAt": response.submitted_at,
+            "answerPolicy": "latest_answer_replaces_previous",
+        }
     except SessionNotFoundError:
         raise _not_found() from None
     except SessionValidationError as error:
@@ -122,25 +147,62 @@ def open_checkpoint(session_id: str, question_id: str, teacher: Annotated[Teache
     """Make a single checkpoint visible to joined students."""
     try:
         service.require_teacher(session_id, teacher.id)
-        session = service.open_checkpoint(session_id, question_id)
-        return {"sessionId": session.id, "status": session.status, "activeQuestionId": session.active_question_id}
+        session, run = service.open_checkpoint(session_id, question_id)
+        return {
+            "sessionId": session.id,
+            "status": run.status,
+            "activeQuestionId": session.active_question_id,
+            "checkpointRunId": run.id,
+            "openedAt": run.opened_at,
+        }
     except SessionNotFoundError:
         raise _not_found() from None
     except SessionValidationError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_RESPONSE", "message": str(error)}}) from None
 
 
-@router.post("/{session_id}/checkpoint/{question_id}/close")
-def close_checkpoint(session_id: str, question_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, str | None]:
-    """Hide an active checkpoint without ending the classroom."""
+@router.post("/{session_id}/checkpoint/{question_id}/close", status_code=status.HTTP_202_ACCEPTED)
+def close_checkpoint(
+    session_id: str,
+    question_id: str,
+    background_tasks: BackgroundTasks,
+    teacher: Annotated[Teacher, Depends(current_teacher)],
+) -> dict[str, Any]:
+    """Close collection and schedule one aggregate class assessment."""
     try:
         service.require_teacher(session_id, teacher.id)
-        session = service.close_checkpoint(session_id, question_id)
-        return {"sessionId": session.id, "status": session.status, "activeQuestionId": session.active_question_id}
+        assessment = service.close_checkpoint(session_id, question_id)
+        background_tasks.add_task(
+            service.analyze_checkpoint,
+            session_id,
+            assessment.checkpoint_run_id,
+        )
+        return _assessment_response(assessment)
     except SessionNotFoundError:
         raise _not_found() from None
     except SessionValidationError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_RESPONSE", "message": str(error)}}) from None
+
+
+@router.get("/{session_id}/checkpoints/{checkpoint_run_id}/analysis")
+def get_checkpoint_analysis(
+    session_id: str,
+    checkpoint_run_id: str,
+    teacher: Annotated[Teacher, Depends(current_teacher)],
+) -> dict[str, Any]:
+    """Poll the aggregate report generated after a checkpoint closes."""
+    try:
+        service.require_teacher(session_id, teacher.id)
+        return _assessment_response(
+            service.get_checkpoint_analysis(session_id, checkpoint_run_id)
+        )
+    except SessionNotFoundError:
+        raise _not_found() from None
+    except SessionValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "FORBIDDEN", "message": str(error)}},
+        ) from None
 
 
 @router.post("/rooms/join", status_code=status.HTTP_201_CREATED)
