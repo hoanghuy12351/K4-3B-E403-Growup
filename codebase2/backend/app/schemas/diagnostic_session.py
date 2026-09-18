@@ -77,3 +77,18 @@ class CheckpointStateRequest(BaseModel):
     """Optional request body reserved for future checkpoint controls."""
 
     model_config = ConfigDict(extra="forbid")
+
+
+class LiveStateRequest(BaseModel):
+    """Teacher-reported slide and canonical transcript cursor for a live class."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    current_slide: int = Field(alias="currentSlide", ge=1, le=100)
+    current_transcript_ref: str = Field(alias="currentTranscriptRef", min_length=1, max_length=20)
+
+    @field_validator("current_transcript_ref", mode="before")
+    @classmethod
+    def strip_transcript_ref(cls, value: object) -> object:
+        """Normalize a canonical transcript reference before validation."""
+        return value.strip() if isinstance(value, str) else value

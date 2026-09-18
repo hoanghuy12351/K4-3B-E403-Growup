@@ -12,6 +12,9 @@ export interface PresetDemoSection {
   concepts: string[];
   learningObjectives: string[];
   misconceptions: Array<{ id: string; statement: string }>;
+  order?: number;
+  slidePages?: number[];
+  triggerSlide?: number;
 }
 
 export interface PresetDemoCatalog {
@@ -56,6 +59,30 @@ export interface DiagnosticSession {
   activeQuestionId?: string | null;
   activeQuestionIds?: string[];
   createdAt: string;
+  checkpointPlans?: LiveCheckpointPlan[];
+  currentSlide?: number;
+  currentTranscriptRef?: string | null;
+  nextTranscriptRef?: string | null;
+  visibleTranscript?: Array<{ ref: string; text: string }>;
+}
+
+export interface LiveCheckpointPlan {
+  id: string;
+  sectionId: string;
+  sectionTitle: string;
+  order: number;
+  slidePages: number[];
+  triggerSlide: number;
+  requiredTranscriptRef: string;
+  teacherPrompt: string;
+  status: "planned" | "generating" | "open" | "closed" | "failed";
+  questionIds: string[];
+}
+
+export interface CreateLiveSessionRequest {
+  lessonId: string;
+  expectedStudents: number;
+  checkpointSelections: Array<{ sectionId: string; teacherPrompt: string; triggerSlide?: number }>;
 }
 
 export interface RoomJoinResult {
@@ -366,6 +393,11 @@ export async function getPresetDemoCatalog(): Promise<PresetDemoCatalog> {
   return apiRequest<PresetDemoCatalog>("/api/teaching-agent/demo");
 }
 
+export async function createLiveSession(request: CreateLiveSessionRequest): Promise<{ sessionId: string; roomCode: string; status: string; checkpointPlans: LiveCheckpointPlan[] }> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp cần NEXT_PUBLIC_USE_MOCK=false và backend có LLM được cấu hình.");
+  return apiRequest("/api/teaching-agent/live-session", { method: "POST", body: JSON.stringify(request) });
+}
+
 export async function createPresetDemoCheckpoint(sectionId: string, expectedStudents: number): Promise<{ sessionId: string }> {
   if (USE_MOCK) return { sessionId: buildMockSession(sectionId, expectedStudents).sessionId };
   return apiRequest<{ sessionId: string }>("/api/teaching-agent/demo/checkpoints", {
@@ -399,6 +431,21 @@ export async function generateAgentCheckpoints(request: AgentGenerateRequest): P
 export async function getDiagnosticSession(sessionId: string): Promise<DiagnosticSession> {
   if (USE_MOCK) return getMockSession(sessionId);
   return apiRequest<DiagnosticSession>(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}`);
+}
+
+export async function updateLiveState(sessionId: string, state: { currentSlide: number; currentTranscriptRef: string }): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/live-state`, { method: "POST", body: JSON.stringify(state) });
+}
+
+export async function triggerLiveCheckpoint(sessionId: string, planId: string): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoints/${encodeURIComponent(planId)}/trigger`, { method: "POST", timeoutMs: 90000 });
+}
+
+export async function closeLiveCheckpoint(sessionId: string, planId: string): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoints/${encodeURIComponent(planId)}/close`, { method: "POST" });
 }
 
 export async function startDiagnosticSession(sessionId: string): Promise<{ sessionId: string; roomCode: string; status: string }> {

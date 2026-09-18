@@ -55,5 +55,9 @@ class DiagnosticSession:
     participants: dict[str, str] = field(default_factory=dict)
     active_question_id: str | None = None
     active_question_ids: list[str] = field(default_factory=list)
+    # Live sessions start with plans only; generated questions are appended at runtime.
+    checkpoint_plans: list[dict[str, Any]] = field(default_factory=list)
+    current_slide: int = 1
+    current_transcript_ref: str | None = None
     responses: list[StudentResponse] = field(default_factory=list)
     created_at: str = field(default_factory=utc_now)

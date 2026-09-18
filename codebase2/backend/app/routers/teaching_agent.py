@@ -14,7 +14,7 @@ from app.diagnostic.service import SessionValidationError
 from app.models.user import Teacher
 from app.routers.auth import current_teacher
 from app.routers.diagnostic_sessions import service
-from app.schemas.teaching_agent import GenerateAgentCheckpointRequest, GenerateDemoCheckpointRequest
+from app.schemas.teaching_agent import CreateLiveSessionRequest, GenerateAgentCheckpointRequest, GenerateDemoCheckpointRequest
 
 
 router = APIRouter(prefix="/teaching-agent", tags=["Teaching agent"])
@@ -50,6 +50,9 @@ def get_demo(teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str,
             {
                 "id": section["id"],
                 "title": section["title"],
+                "order": section["order"],
+                "slidePages": section["slidePages"],
+                "triggerSlide": max(section["slidePages"]),
                 "concepts": get_preanalyzed_section(section["id"])["concepts"],
                 "learningObjectives": get_preanalyzed_section(section["id"])["learningObjectives"],
                 "misconceptions": get_preanalyzed_section(section["id"])["misconceptions"],
@@ -57,6 +60,27 @@ def get_demo(teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str,
             for section in sections
         ],
         "mode": "preset_demo",
+    }
+
+
+@router.post("/live-session", status_code=status.HTTP_201_CREATED)
+def create_live_session(request: CreateLiveSessionRequest, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+    """Create a multi-checkpoint live lesson plan without generating questions yet."""
+    try:
+        session = service.create_live_session(
+            teacher_id=teacher.id,
+            lesson_id=request.lesson_id,
+            expected_students=request.expected_students,
+            selections=[item.model_dump(by_alias=True, exclude_none=True) for item in request.checkpoint_selections],
+        )
+    except SessionValidationError as error:
+        raise _error(status.HTTP_422_UNPROCESSABLE_ENTITY, "INVALID_LIVE_PLAN", str(error)) from None
+    return {
+        "sessionId": session.id,
+        "roomCode": session.room_code,
+        "status": session.status,
+        "lesson": {"id": session.lesson["id"], "title": session.lesson["title"]},
+        "checkpointPlans": session.checkpoint_plans,
     }
 
 

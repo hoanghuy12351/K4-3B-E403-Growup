@@ -17,7 +17,7 @@ from app.database import get_db
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.routers.auth import current_teacher
-from app.schemas.diagnostic_session import CreateDiagnosticSessionRequest, JoinRoomRequest, StudentResponseRequest
+from app.schemas.diagnostic_session import CreateDiagnosticSessionRequest, JoinRoomRequest, LiveStateRequest, StudentResponseRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/diagnostic-sessions", tags=["Diagnostic sessions"])
@@ -112,9 +112,61 @@ def start_session(session_id: str, teacher: Annotated[Teacher, Depends(current_t
 def get_teacher_session(session_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
     """Return checkpoint review data only to the owning teacher."""
     try:
-        return service.student_view(service.require_teacher(session_id, teacher.id))
+        return service.teacher_view(service.require_teacher(session_id, teacher.id))
     except SessionNotFoundError:
         raise _not_found() from None
+
+
+@router.post("/{session_id}/live-state")
+def update_live_state(session_id: str, request: LiveStateRequest, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+    """Persist the teacher's bounded, monotonic live slide/transcript cursor."""
+    try:
+        service.require_teacher(session_id, teacher.id)
+        session = service.update_live_state(session_id, **request.model_dump())
+        return {"sessionId": session.id, "currentSlide": session.current_slide, "currentTranscriptRef": session.current_transcript_ref}
+    except SessionNotFoundError:
+        raise _not_found() from None
+    except (SessionValidationError, ValueError) as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_LIVE_STATE", "message": str(error)}}) from None
+
+
+@router.post("/{session_id}/checkpoints/{plan_id}/trigger")
+def trigger_live_checkpoint(session_id: str, plan_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+    """Run the configured real LLM only when the selected live boundary is reached."""
+    settings: AISettings | None = None
+    try:
+        service.require_teacher(session_id, teacher.id)
+        settings = AISettings.from_env()
+        session, plan, generated = service.trigger_live_checkpoint(session_id, plan_id, settings=settings)
+        return {"sessionId": session.id, "checkpointPlan": plan, "generated": generated, "activeQuestionIds": session.active_question_ids}
+    except SessionNotFoundError:
+        raise _not_found() from None
+    except SessionValidationError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_LIVE_CHECKPOINT", "message": str(error)}}) from None
+    except LLMConfigurationError as error:
+        logger.warning("Live checkpoint configuration failed: provider=%s model=%s error=%s", settings.provider if settings else "unknown", getattr(settings, f"{settings.provider}_model", "unknown") if settings else "unknown", type(error).__name__)
+        raise _provider_unavailable() from None
+    except LLMAuthenticationError:
+        raise _provider_authentication_rejected() from None
+    except LLMTimeoutError:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail={"error": {"code": "AI_PROVIDER_TIMEOUT", "message": "The AI provider took too long to create this checkpoint."}}) from None
+    except (LLMMalformedResponseError, LLMValidationError):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail={"error": {"code": "AI_OUTPUT_INVALID", "message": "The AI returned an invalid checkpoint format. Please retry."}}) from None
+    except (LLMProviderError, LLMRateLimitError):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail={"error": {"code": "AI_PROVIDER_ERROR", "message": "The configured AI provider could not create this checkpoint."}}) from None
+
+
+@router.post("/{session_id}/checkpoints/{plan_id}/close")
+def close_live_checkpoint(session_id: str, plan_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+    """Close a runtime-generated plan and let the lecturer continue the lesson."""
+    try:
+        service.require_teacher(session_id, teacher.id)
+        session = service.close_live_checkpoint(session_id, plan_id)
+        return {"sessionId": session.id, "status": session.status, "activeQuestionIds": session.active_question_ids}
+    except SessionNotFoundError:
+        raise _not_found() from None
+    except SessionValidationError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"error": {"code": "INVALID_LIVE_CHECKPOINT", "message": str(error)}}) from None
 
 
 @router.post("/{session_id}/responses", status_code=status.HTTP_201_CREATED)
