@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "antd";
@@ -21,4 +21,3 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     </main>
   </div></div>;
 }
-

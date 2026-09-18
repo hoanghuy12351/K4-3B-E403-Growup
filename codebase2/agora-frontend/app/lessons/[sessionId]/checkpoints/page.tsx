@@ -1,27 +1,35 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { Alert, Button, Card, Descriptions, List, Spin, Tag } from "antd";
+import { Alert, Button, Card, Descriptions, Progress, QRCode, Spin, Tag } from "antd";
 import AppLayout from "@/components/Layout/AppLayout";
-import { closeAllCheckpoints, getDiagnosticSession, getDiagnosticSummary, openAllCheckpoints, startDiagnosticSession, type DiagnosticSession, type DiagnosticSummary } from "@/services/diagnostic";
+import { closeAllCheckpoints, closeCheckpoint, getDiagnosticSession, getDiagnosticSummary, openCheckpoint, startDiagnosticSession, type DiagnosticSession, type DiagnosticSummary } from "@/services/diagnostic";
 
 const recommendationText = {
-  reteach: "Dữ liệu hiện tại cho thấy phần này nên được giảng lại ngắn.",
-  clarify: "Có một số tín hiệu chưa chắc chắn. Nên làm rõ trước khi tiếp tục.",
-  continue: "Phần lớn phản hồi cho thấy lớp đang theo kịp. Có thể tiếp tục.",
+  reteach: "Nên giảng lại ngắn phần này trước khi chuyển tiếp.",
+  clarify: "Nên làm rõ thêm một vài ý trước khi tiếp tục.",
+  continue: "Lớp đang theo kịp, có thể tiếp tục bài học.",
   insufficient_data: "Chưa đủ phản hồi để kết luận.",
 };
 
-export default function CheckpointReviewPage() {
+const recommendationColor = {
+  reteach: "red",
+  clarify: "orange",
+  continue: "green",
+  insufficient_data: "blue",
+} as const;
+
+export default function LiveTeachingPage() {
   const params = useParams<{ sessionId: string }>();
   const sessionId = params.sessionId;
   const [session, setSession] = useState<DiagnosticSession | null>(null);
   const [summary, setSummary] = useState<DiagnosticSummary | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [workingQuestion, setWorkingQuestion] = useState<string | null>(null);
+  const [working, setWorking] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -29,49 +37,114 @@ export default function CheckpointReviewPage() {
       setSession(next);
       if (next.status !== "draft") setSummary(await getDiagnosticSummary(sessionId));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Không thể tải checkpoint.");
+      setError(reason instanceof Error ? reason.message : "Không thể tải phòng học.");
     } finally {
       setLoading(false);
     }
   }, [sessionId]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
-  const classroomStarted = session?.status !== undefined && session.status !== "draft";
   useEffect(() => {
-    if (!classroomStarted) return;
+    if (!session || session.status === "draft") return;
     const timer = window.setInterval(() => void load(), 2000);
     return () => window.clearInterval(timer);
-  }, [classroomStarted, load]);
+  }, [session, load]);
+
+  const currentSection = session?.sections[currentIndex];
+  const currentQuestion = currentSection ? session?.questions.find(item => item.sectionId === currentSection.id) : undefined;
+  const activeQuestionIds = session?.activeQuestionIds ?? [];
+  const currentQuestionOpen = Boolean(currentQuestion && activeQuestionIds.includes(currentQuestion.id));
+  const currentResult = currentSection ? summary?.sectionResults.find(item => item.sectionId === currentSection.id) : undefined;
+  const correctRate = Math.round((currentResult?.correctRate ?? 0) * 100);
+  const joinUrl = typeof window === "undefined" ? "/join" : `${window.location.origin}/join`;
+
+  const answeredCount = useMemo(() => summary?.respondingStudents ?? 0, [summary]);
 
   async function startClassroom(): Promise<void> {
-    setWorkingQuestion("start"); setError(null);
-    try { await startDiagnosticSession(sessionId); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể mở lớp."); } finally { setWorkingQuestion(null); }
+    setWorking("start"); setError(null);
+    try { await startDiagnosticSession(sessionId); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể tạo lớp học."); } finally { setWorking(null); }
   }
 
-  async function controlAll(action: "open" | "close"): Promise<void> {
-    setWorkingQuestion(action); setError(null);
-    try { if (action === "open") await openAllCheckpoints(sessionId); else await closeAllCheckpoints(sessionId); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể cập nhật checkpoint."); } finally { setWorkingQuestion(null); }
+  async function openCurrentQuestion(): Promise<void> {
+    if (!currentQuestion) return;
+    setWorking(currentQuestion.id); setError(null);
+    try { await openCheckpoint(sessionId, currentQuestion.id); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể mở câu hỏi."); } finally { setWorking(null); }
   }
 
-  const allCheckpointsOpen = (session?.activeQuestionIds?.length ?? 0) > 0;
-  return <AppLayout><div className="page-heading"><div><p className="eyebrow">TEACHING AGENT LIVE</p><h1>{session?.lesson.title || "Đang tải bài giảng"}</h1><p className="muted">Teaching Agent đề xuất từ dữ liệu lớp; giảng viên quyết định bước dạy tiếp theo.</p></div></div>
+  async function closeCurrentQuestion(): Promise<void> {
+    if (!currentQuestion) return;
+    setWorking(currentQuestion.id); setError(null);
+    try { await closeCheckpoint(sessionId, currentQuestion.id); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể đóng câu hỏi."); } finally { setWorking(null); }
+  }
+
+  async function closeQuestions(): Promise<void> {
+    setWorking("close-all"); setError(null);
+    try { await closeAllCheckpoints(sessionId); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể đóng câu hỏi."); } finally { setWorking(null); }
+  }
+
+  function goToSlide(index: number): void {
+    if (!session) return;
+    setCurrentIndex(Math.min(Math.max(index, 0), session.sections.length - 1));
+  }
+
+  return <AppLayout>
+    <div className="page-heading live-heading"><div><p className="eyebrow">PHÒNG DẠY TRỰC TIẾP</p><h1>{session?.lesson.title || "Đang tải bài giảng"}</h1><p className="muted">Giảng viên điều khiển nhịp trình chiếu, học viên vào bằng mã phòng và chỉ thấy câu hỏi khi bạn mở.</p></div>
+      {session?.roomCode && <div className="live-room-code"><span>Mã phòng</span><strong>{session.roomCode}</strong></div>}
+    </div>
+
     {error && <Alert type="error" showIcon title="Không thể hoàn tất yêu cầu" description={error} style={{ marginBottom: 16 }} />}
-    {loading ? <Spin tip="Đang tải checkpoint..." /> : session && <>
-      <Card style={{ marginBottom: 16 }}><Descriptions items={[{ key: "room", label: "Mã phòng", children: <strong>{session.roomCode}</strong> }, { key: "status", label: "Trạng thái", children: <Tag color={session.status === "live" ? "red" : "blue"}>{session.status}</Tag> }]} />
-        {session.status === "draft" ? <Button type="primary" size="large" loading={workingQuestion === "start"} onClick={() => void startClassroom()}>Mở lớp</Button> : <Alert type="success" showIcon title="Lớp đã sẵn sàng" description={<span>Chia sẻ mã <strong>{session.roomCode}</strong> và <Link href="/join">mở trang vào lớp cho học viên</Link>.</span>} />}
-      </Card>
-      {session.status !== "draft" && <Card style={{ marginBottom: 16 }} title="Điều khiển checkpoint"><p>{allCheckpointsOpen ? `Đang mở tất cả ${session.questions.length} checkpoint cho học viên.` : `Sẵn sàng mở cùng lúc ${session.questions.length} checkpoint.`}</p>{allCheckpointsOpen ? <Button danger loading={workingQuestion === "close"} onClick={() => void controlAll("close")}>Đóng tất cả checkpoint</Button> : <Button type="primary" loading={workingQuestion === "open"} onClick={() => void controlAll("open")}>Mở tất cả checkpoint</Button>}</Card>}
-      {session.status !== "draft" && summary && <Card title="Gợi ý cho giảng viên" style={{ marginBottom: 16 }}><p><strong>{recommendationText[summary.recommendation]}</strong></p><p className="muted">{summary.reason}</p><p>{summary.respondingStudents} học viên đã phản hồi.</p><Button>Giảng lại</Button><Button style={{ marginLeft: 10 }}>Tiếp tục</Button></Card>}
-      <List dataSource={session.sections} renderItem={(section, index) => {
-        const question = session.questions.find(item => item.sectionId === section.id);
-        if (!question) return null;
-        const isActive = session.activeQuestionIds?.includes(question.id) ?? false;
-        const result = summary?.sectionResults.find(item => item.sectionId === section.id);
-        return <Card key={section.id} title={`Checkpoint ${index + 1}: ${section.title}`} style={{ marginBottom: 16 }} extra={isActive ? <Tag color="red">Đang mở</Tag> : null}>
-          <p><strong>Khái niệm:</strong> {section.concepts.join(", ") || question.concept}</p><p><strong>{question.question}</strong></p><List size="small" bordered dataSource={question.options} renderItem={option => <List.Item>{option.id}. {option.text}</List.Item>} />
-          {result && <p className="muted" style={{ marginTop: 12 }}>{result.totalResponses} phản hồi đã nhận.</p>}
-        </Card>;
-      }} />
-    </>}
+    {loading ? <Spin tip="Đang tải phòng học..." /> : session && currentSection && currentQuestion && <div className="live-classroom-grid">
+      <section className="teacher-stage">
+        <Card className="live-stage-card">
+          <div className="stage-topline"><Tag color={session.status === "live" ? "red" : session.status === "ready" ? "green" : "blue"}>{session.status === "draft" ? "Bản nháp" : session.status === "ready" ? "Đã tạo lớp" : "Đang dạy"}</Tag><span>Phần {currentIndex + 1}/{session.sections.length}</span></div>
+          <h2>{currentSection.title}</h2>
+          <p className="stage-objective">Checkpoint này kiểm tra các ý chính trước khi giảng viên chuyển sang phần tiếp theo.</p>
+          <div className="stage-concepts">{currentSection.concepts.map(concept => <span key={concept}>🎯 {concept}</span>)}</div>
+          <div className="stage-question">
+            <p className="eyebrow">CÂU HỎI SẼ HIỆN CHO HỌC VIÊN</p>
+            <h3>{currentQuestion.question}</h3>
+            <div className="question-option-list">{currentQuestion.options.map(option => <div key={option.id}>{option.id}. {option.text}</div>)}</div>
+          </div>
+        </Card>
+
+        <div className="stage-controls">
+          <Button size="large" disabled={currentIndex === 0} onClick={() => goToSlide(currentIndex - 1)}>← Phần trước</Button>
+          {session.status === "draft" ? <Button type="primary" size="large" loading={working === "start"} onClick={() => void startClassroom()}>Tạo lớp học</Button>
+            : currentQuestionOpen ? <Button danger size="large" loading={working === currentQuestion.id} onClick={() => void closeCurrentQuestion()}>Đóng câu hỏi</Button>
+              : <Button type="primary" size="large" loading={working === currentQuestion.id} onClick={() => void openCurrentQuestion()}>Mở câu hỏi cho học viên</Button>}
+          <Button size="large" disabled={currentIndex >= session.sections.length - 1} onClick={() => goToSlide(currentIndex + 1)}>Phần sau →</Button>
+        </div>
+      </section>
+
+      <aside className="live-side-panel">
+        <Card className="student-join-card" title="Học viên vào lớp">
+          <QRCode value={joinUrl} size={128} bordered={false} />
+          <Descriptions column={1} size="small" items={[{ key: "code", label: "Mã phòng", children: <strong>{session.roomCode}</strong> }, { key: "link", label: "Trang vào lớp", children: <Link href="/join">/join</Link> }]} />
+          {session.status === "draft" ? <Alert type="warning" showIcon description="Bấm Tạo lớp học trước khi chia mã cho học viên." /> : <Alert type="success" showIcon description="Học viên nhập mã phòng và tên hiển thị, không cần tài khoản." />}
+        </Card>
+
+        <Card className="live-response-card" title="Tín hiệu lớp học">
+          {summary ? <>
+            <div className="response-number"><strong>{answeredCount}</strong><span>học viên đã phản hồi</span></div>
+            <Progress percent={correctRate} strokeColor="#58cc02" trailColor="#e5e5e5" />
+            <Tag color={recommendationColor[summary.recommendation]}>{recommendationText[summary.recommendation]}</Tag>
+            <p className="muted">{summary.reason}</p>
+            <div className="teacher-decisions"><Button>Giảng lại ngắn</Button><Button type="primary">Tiếp tục</Button></div>
+          </> : <p className="muted">Sau khi học viên trả lời, hệ thống sẽ hiện tỉ lệ đúng và gợi ý cho giảng viên.</p>}
+        </Card>
+
+        <Card className="slide-list-card" title="Các phần trong buổi dạy">
+          <div className="live-slide-list">{session.sections.map((section, index) => {
+            const question = session.questions.find(item => item.sectionId === section.id);
+            const isOpen = Boolean(question && activeQuestionIds.includes(question.id));
+            return <button key={section.id} className={index === currentIndex ? "active" : ""} onClick={() => goToSlide(index)}>
+              <span>{index + 1}</span><strong>{section.title}</strong>{isOpen && <em>Đang mở</em>}
+            </button>;
+          })}</div>
+          {activeQuestionIds.length > 0 && <Button danger block loading={working === "close-all"} onClick={() => void closeQuestions()}>Đóng tất cả câu hỏi</Button>}
+        </Card>
+      </aside>
+    </div>}
   </AppLayout>;
 }
+

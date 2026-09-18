@@ -97,6 +97,10 @@ Khởi chạy:
 ..venvScriptspython.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+cd C:\ai-day3\ai-hackathon\K4-3B-E403-Growup\K4-3B-E403-Growup\codebase2\backend
+.\.venv\Scripts\Activate.ps1
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
 Nếu cổng `8000` bị Windows chặn, dùng cổng `8001`:
 
 ```powershell
@@ -218,4 +222,3 @@ git diff
 ```
 
 Chỉ thêm các tệp mã nguồn cần thiết. Không dùng `git add .` nếu chưa kiểm tra danh sách tệp.
-
