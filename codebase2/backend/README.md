@@ -1,34 +1,24 @@
-# Backend(phần xử lý phía máy chủ) · Growup
+﻿# Backend(phần xử lý phía máy chủ) · Growup
 
-Cấu trúc mới nằm trong `codebase2/backend/`.
-Đây là khung thư mục và tệp, chưa triển khai máy chủ hoặc kết nối cơ sở dữ liệu.
-Cơ sở dữ liệu được chọn: PostgreSQL(hệ quản trị cơ sở dữ liệu quan hệ).
+> Xem [Hướng dẫn thiết lập chung](../README.md) để chạy toàn bộ frontend và backend.
+
+Cấu trúc nằm trong `codebase2/backend/`, dùng FastAPI(khung web Python),
+SQLAlchemy(thư viện làm việc với cơ sở dữ liệu) và PostgreSQL(hệ quản trị cơ sở dữ liệu quan hệ).
+
+## Cấu trúc
 
 ```text
 backend/
 ├── app/
-│   ├── __init__.py
 │   ├── main.py
 │   ├── config.py
 │   ├── database.py
 │   ├── models/
-│   │   ├── __init__.py
-│   │   └── user.py
 │   ├── schemas/
-│   │   ├── __init__.py
-│   │   └── user.py
 │   ├── routers/
-│   │   ├── __init__.py
-│   │   └── users.py
 │   ├── services/
-│   │   ├── __init__.py
-│   │   └── user_service.py
 │   └── utils/
-│       ├── __init__.py
-│       └── security.py
 ├── tests/
-│   └── test_users.py
-├── .env
 ├── .env.example
 ├── requirements.txt
 ├── Dockerfile
@@ -48,12 +38,11 @@ backend/
 | `app/utils/` | Hàm dùng chung và bảo mật |
 | `tests/` | Kiểm thử tự động |
 
-Các tệp Python hiện chỉ chứa mô tả trách nhiệm. `requirements.txt`, `Dockerfile`
-và `docker-compose.yml` là chỗ dành sẵn, chưa có cấu hình thực thi.
-Tệp `.env` đã được quy tắc `.gitignore` tại gốc dự án bỏ qua.
+Tệp `.env` được `.gitignore` bỏ qua. Sao chép cấu hình mẫu:
 
-Cấu hình mẫu nằm trong `.env.example`; `.env` đã có các biến tương ứng.
-Điền thông tin cơ sở dữ liệu thực tế trước khi triển khai kết nối:
+```powershell
+Copy-Item .env.example .env
+```
 
 | Biến | Ý nghĩa | Giá trị mẫu |
 |---|---|---|
@@ -63,5 +52,52 @@ Cấu hình mẫu nằm trong `.env.example`; `.env` đã có các biến tươn
 | `DB_USER` | Tài khoản kết nối | `growup` |
 | `DB_PASSWORD` | Mật khẩu tài khoản | Để trống trong mẫu |
 
-Các giá trị mẫu chưa tạo cơ sở dữ liệu hoặc tài khoản. Kết nối và việc đọc cấu hình
-sẽ được triển khai trong `app/database.py` và `app/config.py`.
+## Chạy bằng Docker
+
+Mở Docker Desktop rồi chạy:
+
+```powershell
+docker compose up --build
+```
+
+API chạy tại http://localhost:8000. PostgreSQL chạy trong mạng nội bộ của Docker
+và lưu dữ liệu vào volume(kho lưu trữ) riêng.
+
+## Chạy trực tiếp
+
+```powershell
+python -m venv .venv
+..venvScriptsActivate.ps1
+pip install -r requirements.txt
+..venvScriptspython.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Điền mật khẩu PostgreSQL trong `.env` trước khi chạy trực tiếp. Nếu cổng `8000`
+bị chặn, đổi sang `--port 8001` và cập nhật URL ở frontend.
+
+Kiểm tra:
+
+- http://127.0.0.1:8000/health
+- http://127.0.0.1:8000/docs
+
+## API tài khoản giảng viên
+
+| Phương thức | Đường dẫn | Mục đích |
+|---|---|---|
+| `POST` | `/auth/register` | Tạo tài khoản giảng viên và phiên đăng nhập |
+| `POST` | `/auth/login` | Xác thực giảng viên |
+| `GET` | `/auth/me` | Lấy giảng viên của phiên hiện tại |
+| `POST` | `/auth/logout` | Thu hồi phiên và xóa cookie |
+
+Mật khẩu được băm bằng PBKDF2(cơ chế băm mật khẩu lặp nhiều lần). Phiên dùng mã ngẫu nhiên;
+cơ sở dữ liệu chỉ lưu giá trị băm của mã. Cookie được đặt `HttpOnly`.
+Không có API đăng ký tài khoản học viên; học viên sẽ tham gia lượt kiểm tra bằng mã.
+
+## Kiểm thử
+
+```powershell
+..venvScriptspython.exe -m pytest -q -p no:cacheprovider
+```
+
+Bộ kiểm thử dùng SQLite(cơ sở dữ liệu gọn trong bộ nhớ); môi trường chạy thật dùng PostgreSQL.
+

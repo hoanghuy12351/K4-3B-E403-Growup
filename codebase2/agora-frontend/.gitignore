@@ -1,7 +1,9 @@
 node_modules/
 .next/
+.next-check/
+next-check/
 out/
 .env.local
 .env.*.local
 *.tsbuildinfo
-
+.venv/

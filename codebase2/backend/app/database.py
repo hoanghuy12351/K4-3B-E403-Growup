@@ -1,5 +1,30 @@
-"""Khởi tạo kết nối và quản lý phiên làm việc với PostgreSQL.
+"""Kết nối PostgreSQL và cấp phiên làm việc cho từng yêu cầu."""
 
-Thông tin kết nối lấy từ cấu hình, không ghi mật khẩu trực tiếp trong mã.
-Chưa triển khai kết nối thực tế.
-"""
+from collections.abc import Generator
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.config import get_settings
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+settings = get_settings()
+engine_options: dict[str, object] = {"pool_pre_ping": True}
+if str(settings.sqlalchemy_url).startswith("sqlite"):
+    engine_options.update({"connect_args": {"check_same_thread": False}, "poolclass": StaticPool})
+
+engine = create_engine(settings.sqlalchemy_url, **engine_options)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def get_db() -> Generator[Session, None, None]:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

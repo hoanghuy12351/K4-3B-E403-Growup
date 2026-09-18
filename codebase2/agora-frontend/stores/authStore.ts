@@ -1,12 +1,12 @@
 "use client";
 import { createContext } from "react";
 import { createStore } from "zustand/vanilla";
-import type { User } from "@/types/user";
+import type { Teacher } from "@/types/user";
 
 export interface AuthState {
-  user: User | null;
+  user: Teacher | null;
   ready: boolean;
-  setUser: (user: User | null) => void;
+  setUser: (user: Teacher | null) => void;
   setReady: () => void;
 }
 export function createAuthStore() {
@@ -19,4 +19,3 @@ export function createAuthStore() {
 export type AuthStore = ReturnType<typeof createAuthStore>;
 export const AuthStoreContext = createContext<AuthStore | null>(null);
 export const DEMO_SESSION_KEY = "growup-demo-session-v1";
-

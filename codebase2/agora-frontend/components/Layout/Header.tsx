@@ -8,7 +8,7 @@ export default function Header() {
   const router = useRouter();
   const { message } = App.useApp();
   return <header className="topbar">
-    <span className="topbar-label">Không gian giảng viên</span>
+    <span className="topbar-label">Không gian giảng viên · Tài khoản giảng viên</span>
     <div className="header-actions">
       <Avatar style={{ background: "#256d62" }}>{user?.name?.charAt(0)}</Avatar>
       <span className="account-name">{user?.name}</span>
@@ -19,4 +19,3 @@ export default function Header() {
     </div>
   </header>;
 }
-

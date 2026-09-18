@@ -8,7 +8,7 @@
                     "build":  "next build",
                     "start":  "next start",
                     "lint":  "eslint .",
-                    "typecheck":  "tsc --noEmit",
+                    "typecheck":  "tsc --noEmit --incremental false",
                     "desktop":  "electron electron/main.js"
                 },
     "dependencies":  {

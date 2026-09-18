@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, App, Button, Form, Input } from "antd";
@@ -17,16 +18,17 @@ export default function LoginPage() {
   if (!ready || user) return <Loading />;
   return <main className="login-page">
     <section className="login-story">
-      <span className="brand"><span className="brand-mark">G</span>Growup</span>
-      <p className="eyebrow">KHÔNG GIAN GIẢNG VIÊN</p>
+      <Link className="brand" href="/"><span className="brand-mark">G</span>Growup</Link>
+      <p className="eyebrow">ĐĂNG NHẬP GIẢNG VIÊN</p>
       <h1>Hiểu lớp hơn.<br />Dạy tiếp vững hơn.</h1>
       <p>Một nơi để chuẩn bị kiểm tra, xem phản hồi và chọn cách hỗ trợ học viên.</p>
-      <span className="story-footer">VLearn · Nhóm Growup · A2</span>
+      <span className="story-footer">Học viên không cần đăng nhập.</span>
     </section>
     <section className="login-panel"><div className="login-card">
-      <h2>Chào mừng trở lại</h2><p className="muted">Đăng nhập để mở không gian làm việc.</p>
+      <Link className="back-link" href="/">← Trang giới thiệu</Link>
+      <h2>Chào mừng trở lại</h2><p className="muted">Đăng nhập tài khoản giảng viên.</p>
       {USE_MOCK && <Alert type="info" title="Đăng nhập mô phỏng"
-        description="Dùng email bất kỳ hợp lệ và mật khẩu từ 6 ký tự. Không dùng mật khẩu thật."
+        description="Tài khoản mẫu: teacher@example.com / demo123456. Không dùng mật khẩu thật."
         showIcon style={{ marginBottom: 24 }} />}
       <Form<LoginInput> layout="vertical" requiredMark={false}
         initialValues={USE_MOCK ? { email: "teacher@example.com" } : undefined}
@@ -41,12 +43,13 @@ export default function LoginPage() {
           <Input size="large" autoComplete="username" placeholder="teacher@example.com" />
         </Form.Item>
         <Form.Item name="password" label="Mật khẩu" rules={[{ required: true, message: "Nhập mật khẩu." },
-          { min: 6, message: "Nhập ít nhất 6 ký tự." }]}>
+          { min: 8, message: "Nhập ít nhất 8 ký tự." }]}>
           <Input.Password size="large" autoComplete="current-password" />
         </Form.Item>
         <Button size="large" type="primary" htmlType="submit" block loading={submitting}>Đăng nhập</Button>
       </Form>
+      <p className="form-switch">Chưa có tài khoản? <Link href="/register">Đăng ký giảng viên</Link></p>
+      <p className="student-shortcut">Bạn là học viên? <Link href="/join">Nhập mã, không cần tài khoản</Link></p>
     </div></section>
   </main>;
 }
-
