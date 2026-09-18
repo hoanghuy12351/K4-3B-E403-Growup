@@ -16,6 +16,24 @@ def _as_bool(value: str | None, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def load_backend_env(env_file: Path | str | None = None) -> None:
+    """Load simple KEY=VALUE pairs from backend/.env without overwriting exported variables."""
+    path = Path(env_file) if env_file else Path(__file__).resolve().parents[2] / ".env"
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        candidate = line.strip()
+        if not candidate or candidate.startswith("#") or "=" not in candidate:
+            continue
+        key, value = candidate.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"\"", "'"}:
+            value = value[1:-1]
+        if key:
+            os.environ.setdefault(key, value)
+
+
 @dataclass(frozen=True)
 class AISettings:
     """Centralized server-side configuration for deterministic and LLM modes."""
@@ -51,8 +69,9 @@ class AISettings:
             raise ValueError("AI timeout, retry count, and output token limit must be positive.")
 
     @classmethod
-    def from_env(cls) -> "AISettings":
-        """Build settings once from environment without exposing secrets in results."""
+    def from_env(cls, env_file: Path | str | None = None) -> "AISettings":
+        """Load backend/.env then build settings without exposing secrets in results."""
+        load_backend_env(env_file)
         env = os.environ
         return cls(
             mode=env.get("AI_MODE", "hybrid").lower(),
