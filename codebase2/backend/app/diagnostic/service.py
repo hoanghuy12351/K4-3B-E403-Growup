@@ -47,6 +47,19 @@ class DiagnosticSessionService:
         )
         return self.repository.create_session(session)
 
+    def create_section_session(self, *, lesson: dict[str, Any], checkpoint: dict[str, Any], expected_students: int | None, teacher_id: str) -> DiagnosticSession:
+        """Create a draft session containing exactly one pre-scoped checkpoint."""
+        if not checkpoint.get("section") or not checkpoint.get("question"):
+            raise SessionValidationError("A demo checkpoint must include one section and one question.")
+        return self.repository.create_session(DiagnosticSession(
+            id=str(uuid4()),
+            teacher_id=teacher_id,
+            room_code=self._room_code(),
+            lesson=lesson,
+            sections=[checkpoint],
+            expected_students=expected_students,
+        ))
+
     def _room_code(self) -> str:
         """Generate a short public code while keeping the UUID internal."""
         alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"

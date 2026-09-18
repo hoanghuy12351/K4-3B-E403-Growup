@@ -1,0 +1,54 @@
+{
+  "lessons": [
+    {
+      "id": "day1-ai-llm-foundation",
+      "title": "AI & LLM Foundation",
+      "slidePath": "data/vlearn-pack/slides/d1-slide-hackathon.pdf",
+      "transcriptPath": "data/vlearn-pack/transcript/transcript-04-clean.md",
+      "sections": [
+        {
+          "id": "ai-landscape",
+          "title": "AI Landscape",
+          "slidePages": [3, 4],
+          "transcriptRefs": {"from": "T04-015", "to": "T04-015"}
+        },
+        {
+          "id": "history-of-ai",
+          "title": "History of AI",
+          "slidePages": [5, 6, 7, 8, 9],
+          "transcriptRefs": {"from": "T04-016", "to": "T04-045"}
+        },
+        {
+          "id": "inside-llm",
+          "title": "Inside LLM",
+          "slidePages": [10, 11, 12, 13],
+          "transcriptRefs": {"from": "T04-046", "to": "T04-050"}
+        },
+        {
+          "id": "attention-context",
+          "title": "Attention & Context",
+          "slidePages": [14, 15, 16],
+          "transcriptRefs": {"from": "T04-051", "to": "T04-057"}
+        },
+        {
+          "id": "training-limitations",
+          "title": "Training & Limitations",
+          "slidePages": [17, 18, 19, 20, 21, 22],
+          "transcriptRefs": {"from": "T04-058", "to": "T04-072"}
+        },
+        {
+          "id": "from-llm-to-agent",
+          "title": "From LLM to AI Agent",
+          "slidePages": [23, 24],
+          "transcriptRefs": {"from": "T04-073", "to": "T04-075"}
+        },
+        {
+          "id": "model-selection-token-cost",
+          "title": "Model Selection & Token Cost",
+          "slidePages": [25, 26, 27, 28, 29],
+          "transcriptRefs": {"from": "T04-076", "to": "T04-089"}
+        }
+      ]
+    }
+  ]
+}

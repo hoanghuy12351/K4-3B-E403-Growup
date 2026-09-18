@@ -24,11 +24,18 @@ def parse_and_validate(data: dict, *, evidence_turn_ids: set[str], teaching_cont
     for misconception in result.misconceptions:
         if any(turn_id not in evidence_turn_ids for turn_id in misconception.evidenceTurnIds):
             raise LLMValidationError("LLM output references an evidence turn ID that was not supplied.")
-    allowed_source_ids = {str(teaching_context.get("sourceId", "")).strip()}
+    allowed_source_refs = {
+        (str(item.get("type", "")).strip(), str(item.get("id", "")).strip())
+        for item in teaching_context.get("allowedSourceRefs", [])
+        if isinstance(item, dict)
+    }
+    allowed_source_ids = {source_id for _, source_id in allowed_source_refs} or {str(teaching_context.get("sourceId", "")).strip()}
     if not allowed_source_ids or "" in allowed_source_ids:
         raise LLMValidationError("Teaching context must provide sourceId for LLM grounding.")
     if any(source.id not in allowed_source_ids for source in result.question.source):
         raise LLMValidationError("LLM output references a source ID that was not supplied.")
+    if allowed_source_refs and any((source.type, source.id) not in allowed_source_refs for source in result.question.source):
+        raise LLMValidationError("LLM output references a source type that was not supplied.")
     options = result.question.options
     option_ids = [option.id for option in options]
     if len(option_ids) != len(set(option_ids)):
