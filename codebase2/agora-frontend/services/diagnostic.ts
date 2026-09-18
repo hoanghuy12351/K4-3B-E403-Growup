@@ -6,6 +6,18 @@ export interface LessonMaterial {
   description?: string;
 }
 
+export interface PresetDemoSection {
+  id: string;
+  title: string;
+}
+
+export interface PresetDemoCatalog {
+  lesson: { id: string; title: string };
+  agentMessage: string;
+  sections: PresetDemoSection[];
+  mode: "preset_demo";
+}
+
 export interface DiagnosticOption {
   id: string;
   text: string;
@@ -78,6 +90,17 @@ export async function createDiagnosticSession(materialId: string, expectedStuden
   return apiRequest<{ sessionId: string }>("/api/diagnostic-sessions", {
     method: "POST",
     body: JSON.stringify({ lesson: { materialId }, expectedStudents }),
+  });
+}
+
+export async function getPresetDemoCatalog(): Promise<PresetDemoCatalog> {
+  return apiRequest<PresetDemoCatalog>("/api/teaching-agent/demo");
+}
+
+export async function createPresetDemoCheckpoint(sectionId: string, expectedStudents: number): Promise<{ sessionId: string }> {
+  return apiRequest<{ sessionId: string }>("/api/teaching-agent/demo/checkpoints", {
+    method: "POST",
+    body: JSON.stringify({ sectionId, expectedStudents }),
   });
 }
 
