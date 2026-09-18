@@ -28,7 +28,7 @@ docker --version
 
 ```powershell
 git clone https://github.com/hoanghuy12351/K4-3B-E403-Growup.git
-cd K4-3B-E403-Growupcodebase2
+cd K4-3B-E403-Growup/codebase2
 ```
 
 Nếu đã clone:
