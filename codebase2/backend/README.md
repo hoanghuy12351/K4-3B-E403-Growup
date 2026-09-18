@@ -65,3 +65,35 @@ Cấu hình mẫu nằm trong `.env.example`; `.env` đã có các biến tươn
 
 Các giá trị mẫu chưa tạo cơ sở dữ liệu hoặc tài khoản. Kết nối và việc đọc cấu hình
 sẽ được triển khai trong `app/database.py` và `app/config.py`.
+
+## AI diagnostic API
+
+Khởi chạy API từ thư mục `codebase2/backend`:
+
+```bash
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Kiểm tra server tại `http://127.0.0.1:8000/health` và Swagger tại
+`http://127.0.0.1:8000/docs`. API tạo một câu hỏi qua `POST /api/ai/diagnostic`.
+Mode và provider được đọc từ `.env` trên backend, không nhận trong request. Đặt
+`AI_MODE=deterministic` để kiểm tra HTTP không cần API key; dùng `AI_MODE=llm`
+khi cần kiểm tra provider thật và xác nhận `generation.fallbackUsed` là `false`.
+
+```json
+{
+  "teachingContext": {
+    "title": "Tokenization",
+    "text": "A token can be a word, part of a word, or a character.",
+    "sourceId": "slide-test"
+  },
+  "options": {
+    "questionCount": 1
+  }
+}
+```
+
+`questionCount` hiện phải là `1`; `mode` và `provider` trong request không được
+hỗ trợ và sẽ trả về `422`. API cần evidence pack local trong `data/` khi tạo
+diagnostic. Lỗi dataset, cấu hình provider hoặc upstream được trả về dưới dạng
+JSON an toàn và không chứa API key, prompt hay traceback.
