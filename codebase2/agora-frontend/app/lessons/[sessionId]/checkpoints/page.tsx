@@ -106,9 +106,10 @@ export default function LiveTeachingPage() {
     return () => window.clearTimeout(timer);
   }, [generatePlan, generatingPlan, openPlan, pendingPlan, session]);
 
-  const statusText = generatingPlan ? "Đang tạo câu hỏi từ nội dung vừa giảng..." : openPlan ? "Đang chờ phản hồi" : "Đang nghe bài giảng";
+  const statusText = generatingPlan ? "Đang tạo câu hỏi từ nội dung vừa giảng..." : openPlan ? "Đang chờ phản hồi" : failedPlan ? "Checkpoint cần được thử lại" : "Đang nghe bài giảng";
   const transcript = session?.visibleTranscript || [];
   const slideUrl = `${API_URL}/api/teaching-agent/live-lesson/slides#page=${session?.currentSlide || 1}&view=FitH`;
+  const isRecording = session?.status !== "draft" && !generatingPlan && !openPlan && !failedPlan;
 
   return <AppLayout>
     <div className="page-heading live-heading"><div><p className="eyebrow">PHÒNG DẠY TRỰC TIẾP</p><h1>{session?.lesson.title || "Đang tải bài giảng"}</h1><p className="muted">Transcript chỉ hiện dần theo nhịp giảng và checkpoint dùng đúng phần nội dung đã xuất hiện.</p></div>{session?.roomCode && <div className="live-room-code"><span>Mã phòng</span><strong>{session.roomCode}</strong></div>}</div>
@@ -123,7 +124,7 @@ export default function LiveTeachingPage() {
       </Card></section>
       <aside className="live-side-panel">
         <Card className="student-join-card" title="Học viên vào lớp"><QRCode value={joinUrl} size={128} bordered={false} /><Descriptions column={1} size="small" items={[{ key: "code", label: "Mã phòng", children: <strong>{session.roomCode}</strong> }, { key: "link", label: "Trang vào lớp", children: <Link href="/join">/join</Link> }]} /></Card>
-        <Card title="Live transcription"><Tag color={generatingPlan ? "gold" : "green"}>{statusText}</Tag><div style={{ maxHeight: 260, overflowY: "auto", marginTop: 12 }}>{transcript.length ? transcript.slice(-8).map(item => <p key={item.ref}><strong>{item.ref}</strong> {item.text}</p>) : <p className="muted">Đang chờ lời giảng đầu tiên...</p>}</div></Card>
+        <Card title="Live transcription"><div className="recording-status"><div className={`recording-wave${isRecording ? " is-recording" : ""}`} aria-label={isRecording ? "Đang ghi âm" : "Ghi âm đang tạm dừng"}><span /><span /><span /><span /><span /></div><Tag color={isRecording ? "green" : generatingPlan ? "gold" : "red"}>{isRecording ? "Đang ghi âm" : statusText}</Tag></div><div style={{ maxHeight: 260, overflowY: "auto", marginTop: 12 }}>{transcript.length ? transcript.slice(-8).map(item => <p key={item.ref}><strong>{item.ref}</strong> {item.text}</p>) : <p className="muted">Đang chờ lời giảng đầu tiên...</p>}</div></Card>
         <Card className="live-response-card" title="Tín hiệu lớp học">{currentResult ? <><div className="response-number"><strong>{currentResult.totalResponses}</strong><span>phản hồi tại checkpoint</span></div><Progress percent={Math.round(currentResult.correctRate * 100)} strokeColor="#58cc02" /><Tag color={recommendationColor[summary?.recommendation || "insufficient_data"]}>{recommendationText[summary?.recommendation || "insufficient_data"]}</Tag><p className="muted">{currentResult.dominantMisconception?.statement || summary?.reason}</p></> : <p className="muted">Kết quả phản hồi sẽ xuất hiện khi học viên trả lời.</p>}</Card>
         <Card className="slide-list-card" title="Các checkpoint">{plans.map(plan => <div key={plan.id} style={{ marginBottom: 10 }}><strong>{plan.order}. {plan.sectionTitle}</strong><div><Tag color={plan.status === "open" ? "green" : plan.status === "failed" ? "red" : plan.status === "generating" ? "gold" : "blue"}>{plan.status}</Tag> Slide {plan.triggerSlide}</div></div>)}</Card>
       </aside>
