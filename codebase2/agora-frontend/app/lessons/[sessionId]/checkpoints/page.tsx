@@ -57,6 +57,9 @@ export default function LiveTeachingPage() {
   }, [resultPlan, session?.sections, summary]);
   const correctRate = Math.round((currentResult?.correctRate ?? 0) * 100);
   const activeRecommendation = currentResult?.recommendation ?? summary?.recommendation ?? "insufficient_data";
+  const correctAnswer = resultPlan?.status === "closed"
+    ? currentResult?.optionDistribution.find(option => option.correct)
+    : undefined;
 
   async function startClassroom(): Promise<void> {
     setWorking("start"); setError(null);
@@ -166,6 +169,7 @@ export default function LiveTeachingPage() {
                 <em>{option.count} ({Math.round(option.ratio * 100)}%)</em>
               </div>)}
             </div>}
+            {correctAnswer && <Alert type="success" showIcon title="Đáp án đúng sau khi đóng checkpoint" description={<strong>{correctAnswer.optionId}. {correctAnswer.text}</strong>} style={{ marginTop: 12 }} />}
             {currentResult?.dominantMisconception?.statement && <p><strong>Hiểu nhầm nổi bật:</strong> {currentResult.dominantMisconception.statement}</p>}
             {currentResult?.aiAnalysis ? <div className="ai-class-analysis">
               <div><Tag color={currentResult.aiAnalysis.generatedBy === "ai" ? "purple" : "default"}>{currentResult.aiAnalysis.generatedBy === "ai" ? "AI phân tích" : "Phân tích theo quy tắc"}</Tag></div>
