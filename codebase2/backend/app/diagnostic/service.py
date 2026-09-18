@@ -8,7 +8,8 @@ from app.ai.config import AISettings
 from app.ai.services.lesson_diagnostic_service import generate_lesson_diagnostic
 from app.ai.services.material_ingestion import ingest_material, resolve_available_material
 from app.ai.services.answer_classification_service import classify_explanation
-from app.domain.classification import rubric_from_diagnostic
+from app.ai.services.demo_checkpoint_catalog import build_demo_session_section, get_demo_section, load_demo_catalog
+from app.domain.classification import ClassificationDecision, rubric_from_diagnostic
 
 from .aggregation import build_class_summary
 from .models import DiagnosticSession, StudentResponse
@@ -57,6 +58,31 @@ class DiagnosticSessionService:
             room_code=self._room_code(),
             lesson=lesson,
             sections=[checkpoint],
+            expected_students=expected_students,
+        ))
+
+    def create_preset_demo_session(self, *, teacher_id: str, section_id: str, expected_students: int | None) -> DiagnosticSession:
+        """Create one static, offline demo session without runtime AI or source parsing."""
+        catalog = load_demo_catalog()
+        lesson = catalog.get("lesson")
+        section = get_demo_section(section_id)
+        if not isinstance(lesson, dict):
+            raise SessionValidationError("Preset demo lesson metadata is invalid.")
+        return self.repository.create_session(DiagnosticSession(
+            id=str(uuid4()),
+            teacher_id=teacher_id,
+            room_code=self._room_code(),
+            lesson={
+                "id": lesson["id"],
+                "materialId": lesson["id"],
+                "title": lesson["title"],
+                "sourceId": lesson["id"],
+                "contentMode": "preset_demo",
+                "slideSource": "d1-slide-hackathon.pdf",
+                "transcriptSource": "transcript-04-clean.md",
+                "selectedSectionId": section["id"],
+            },
+            sections=[build_demo_session_section(section_id)],
             expected_students=expected_students,
         ))
 
@@ -148,8 +174,11 @@ class DiagnosticSessionService:
         selected_option = next(option for option in question_section["question"]["options"] if option.get("id") == option_id)
         classification = None
         if explanation:
-            rubric = rubric_from_diagnostic(question_section)
-            classification = classify_explanation(rubric=rubric, explanation=explanation, settings=AISettings.from_env()).to_dict()
+            if session.lesson.get("contentMode") == "preset_demo":
+                classification = self._preset_classification(question_section, selected_option).to_dict()
+            else:
+                rubric = rubric_from_diagnostic(question_section)
+                classification = classify_explanation(rubric=rubric, explanation=explanation, settings=AISettings.from_env()).to_dict()
         response = StudentResponse(
             id=str(uuid4()),
             session_id=session.id,
@@ -162,6 +191,17 @@ class DiagnosticSessionService:
             classification=classification,
         )
         return self.repository.save_response(response)
+
+    @staticmethod
+    def _preset_classification(question_section: dict[str, Any], option: dict[str, Any]) -> ClassificationDecision:
+        """Classify preset-demo answers deterministically without provider access."""
+        refs = tuple(str(item.get("id")) for item in question_section["section"].get("sourceRefs", []) if isinstance(item, dict) and item.get("id"))
+        if option.get("correct") is True:
+            return ClassificationDecision("understood", (), refs, False)
+        misconception_id = option.get("misconceptionId")
+        if isinstance(misconception_id, str) and misconception_id:
+            return ClassificationDecision("misunderstood", (misconception_id,), refs, False)
+        return ClassificationDecision("partial", (), refs, False)
 
     def summary(self, session_id: str) -> dict[str, Any]:
         """Build a non-identifying lecturer summary from the stored session responses."""
