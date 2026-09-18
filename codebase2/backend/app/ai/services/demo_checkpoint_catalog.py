@@ -14,6 +14,7 @@ class DemoCheckpointCatalogError(ValueError):
 _DATA_DIRECTORY = Path(__file__).resolve().parents[1] / "data"
 _CATALOG_PATH = _DATA_DIRECTORY / "demo_lesson_catalog.json"
 _CHECKPOINTS_PATH = _DATA_DIRECTORY / "demo_checkpoints.json"
+PRESET_CHECKPOINT_COUNT = 3
 
 
 @lru_cache(maxsize=1)
@@ -120,3 +121,29 @@ def build_demo_session_section(section_id: str) -> dict[str, Any]:
         "question": question,
         "generation": checkpoint.get("generation", {}),
     }
+
+
+def build_demo_session_sections(section_id: str) -> list[dict[str, Any]]:
+    """Create three distinct preset checkpoints for one selected concept section."""
+    template = build_demo_session_section(section_id)
+    base_question = template["question"]
+    if not isinstance(base_question, dict):
+        raise DemoCheckpointCatalogError("Preset demo question is invalid.")
+    base_question_id = str(base_question["id"])
+    base_section_id = str(template["section"]["id"])
+    concept = str(base_question.get("concept") or template["section"]["title"])
+    question_texts = [
+        str(base_question["question"]),
+        f"Phát biểu nào phù hợp nhất với nội dung bài giảng về {concept}?",
+        f"Khi kiểm tra hiểu biết về {concept}, lựa chọn nào bám sát nhất nội dung đã học?",
+    ][:PRESET_CHECKPOINT_COUNT]
+    sections = []
+    for index, question_text in enumerate(question_texts, start=1):
+        item = deepcopy(template)
+        item["sectionId"] = f"{base_section_id}-q{index:02d}"
+        item["section"]["id"] = item["sectionId"]
+        item["section"]["title"] = f"{template['section']['title']} — Câu {index}"
+        item["question"]["id"] = f"{base_question_id}-{index:02d}"
+        item["question"]["question"] = question_text
+        sections.append(item)
+    return sections

@@ -8,7 +8,7 @@ from app.ai.config import AISettings
 from app.ai.services.lesson_diagnostic_service import generate_lesson_diagnostic
 from app.ai.services.material_ingestion import ingest_material, resolve_available_material
 from app.ai.services.answer_classification_service import classify_explanation
-from app.ai.services.demo_checkpoint_catalog import build_demo_session_section, get_demo_section, load_demo_catalog
+from app.ai.services.demo_checkpoint_catalog import build_demo_session_sections, get_demo_section, load_demo_catalog
 from app.domain.classification import ClassificationDecision, rubric_from_diagnostic
 
 from .aggregation import build_class_summary
@@ -82,7 +82,7 @@ class DiagnosticSessionService:
                 "transcriptSource": "transcript-04-clean.md",
                 "selectedSectionId": section["id"],
             },
-            sections=[build_demo_session_section(section_id)],
+            sections=build_demo_session_sections(section_id),
             expected_students=expected_students,
         ))
 

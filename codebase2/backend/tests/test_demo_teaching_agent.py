@@ -8,7 +8,7 @@ os.environ["FRONTEND_ORIGINS"] = "http://localhost:3000"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.ai.services.demo_checkpoint_catalog import build_demo_session_section, list_demo_sections  # noqa: E402
+from app.ai.services.demo_checkpoint_catalog import build_demo_session_sections, list_demo_sections  # noqa: E402
 from app.diagnostic import service as diagnostic_service  # noqa: E402
 from app.main import app  # noqa: E402
 from app.routers import teaching_agent  # noqa: E402
@@ -25,7 +25,7 @@ def _register_teacher(client: TestClient) -> None:
 
 
 def _disable_demo_delay(monkeypatch) -> list[int]:
-    """Replace the intentional 30-second UX delay while unit tests run."""
+    """Replace the configured UX delay while unit tests run."""
     delays: list[int] = []
     monkeypatch.setattr(teaching_agent.time, "sleep", lambda seconds: delays.append(seconds))
     return delays
@@ -44,18 +44,20 @@ def test_static_fixtures_define_all_prepared_sections() -> None:
         "api-prompt-basics",
     ]
     for section in sections:
-        session_section = build_demo_session_section(section["id"])
-        question = session_section["question"]
-        options = question["options"]
-        known_misconceptions = {item["id"] for item in session_section["misconceptions"]}
-        allowed_refs = {(item["type"], item["id"]) for item in session_section["section"]["sourceRefs"]}
-        assert len(options) == 4
-        assert sum(option.get("correct") is True for option in options) == 1
-        assert all(option["misconceptionId"] in known_misconceptions for option in options if option.get("misconceptionId"))
-        assert all((item["type"], item["id"]) in allowed_refs for item in question["source"])
-        assert session_section["generation"]["mode"] == "preset_demo"
-        assert session_section["generation"]["provider"] is None
-        assert session_section["generation"]["model"] is None
+        session_sections = build_demo_session_sections(section["id"])
+        assert len(session_sections) == 3
+        for session_section in session_sections:
+            question = session_section["question"]
+            options = question["options"]
+            known_misconceptions = {item["id"] for item in session_section["misconceptions"]}
+            allowed_refs = {(item["type"], item["id"]) for item in session_section["section"]["sourceRefs"]}
+            assert len(options) == 4
+            assert sum(option.get("correct") is True for option in options) == 1
+            assert all(option["misconceptionId"] in known_misconceptions for option in options if option.get("misconceptionId"))
+            assert all((item["type"], item["id"]) in allowed_refs for item in question["source"])
+            assert session_section["generation"]["mode"] == "preset_demo"
+            assert session_section["generation"]["provider"] is None
+            assert session_section["generation"]["model"] is None
 
 
 def test_demo_endpoints_use_static_lookup_without_runtime_ai(monkeypatch) -> None:
@@ -86,7 +88,8 @@ def test_demo_endpoints_use_static_lookup_without_runtime_ai(monkeypatch) -> Non
         assert created.status_code == 201
         payload = created.json()
         assert payload["status"] == "draft"
-        assert payload["checkpoint"]["id"] == "Q-DEMO-ATTENTION"
+        assert payload["checkpoint"]["id"] == "Q-DEMO-ATTENTION-01"
+        assert len(payload["checkpoints"]) == 3
         assert payload["generation"] == {
             "mode": "preset_demo",
             "provider": None,
@@ -97,7 +100,7 @@ def test_demo_endpoints_use_static_lookup_without_runtime_ai(monkeypatch) -> Non
             "retryCount": 0,
             "usage": None,
         }
-    assert delays == [30]
+    assert delays == [teaching_agent.DEMO_PROCESS_DELAY_SECONDS]
 
 
 def test_preset_session_keeps_classroom_flow_private_and_offline(monkeypatch) -> None:
@@ -121,18 +124,18 @@ def test_preset_session_keeps_classroom_flow_private_and_offline(monkeypatch) ->
         assert client.post(f"/api/diagnostic-sessions/{session_id}/start").status_code == 200
         joined = client.post("/api/diagnostic-sessions/rooms/join", json={"roomCode": room_code, "displayName": "Anonymous Student"})
         participant_id = joined.json()["participantId"]
-        assert client.post(f"/api/diagnostic-sessions/{session_id}/checkpoint/Q-DEMO-ATTENTION/open").status_code == 200
+        assert client.post(f"/api/diagnostic-sessions/{session_id}/checkpoint/Q-DEMO-ATTENTION-01/open").status_code == 200
         state = client.get(f"/api/diagnostic-sessions/rooms/{room_code}/state", params={"participantId": participant_id})
         assert state.status_code == 200
         active_question = state.json()["activeQuestion"]
-        assert active_question["id"] == "Q-DEMO-ATTENTION"
+        assert active_question["id"] == "Q-DEMO-ATTENTION-01"
         assert "correct" not in str(active_question)
         assert "misconceptionId" not in str(active_question)
 
         answer = client.post(f"/api/diagnostic-sessions/{session_id}/responses", json={
             "participantId": participant_id,
-            "questionId": "Q-DEMO-ATTENTION",
-            "sectionId": "attention-context",
+            "questionId": "Q-DEMO-ATTENTION-01",
+            "sectionId": "attention-context-q01",
             "optionId": "B",
             "explanation": "I chose a longer context.",
         })

@@ -14,7 +14,7 @@ from app.schemas.teaching_agent import GenerateDemoCheckpointRequest
 
 
 router = APIRouter(prefix="/teaching-agent", tags=["Teaching agent"])
-DEMO_PROCESS_DELAY_SECONDS = 30
+DEMO_PROCESS_DELAY_SECONDS = 5
 
 
 def _error(status_code: int, code: str, message: str) -> HTTPException:
@@ -55,21 +55,23 @@ def generate_demo_checkpoint(request: GenerateDemoCheckpointRequest, teacher: An
         raise _error(status.HTTP_404_NOT_FOUND, "DEMO_SECTION_NOT_FOUND", "The requested demo section was not found.") from None
     except (DemoCheckpointCatalogError, SessionValidationError):
         raise _error(status.HTTP_503_SERVICE_UNAVAILABLE, "DEMO_CATALOG_UNAVAILABLE", "Preset demo data is unavailable.") from None
-    checkpoint = session.sections[0]
-    section = checkpoint["section"]
-    question = checkpoint["question"]
+    checkpoints = [
+        {
+            "id": item["question"]["id"],
+            "concept": item["question"]["concept"],
+            "question": item["question"]["question"],
+            "options": item["question"]["options"],
+            "sourceRefs": [source["id"] for source in item["question"]["source"]],
+        }
+        for item in session.sections
+    ]
     return {
         "sessionId": session.id,
         "roomCode": session.room_code,
         "status": session.status,
         "lesson": {"id": session.lesson["id"], "title": session.lesson["title"]},
-        "selectedSection": {"id": section["id"], "title": section["title"]},
-        "checkpoint": {
-            "id": question["id"],
-            "concept": question["concept"],
-            "question": question["question"],
-            "options": question["options"],
-            "sourceRefs": [item["id"] for item in question["source"]],
-        },
-        "generation": checkpoint["generation"],
+        "selectedSection": {"id": request.section_id, "title": get_demo_section(request.section_id)["title"]},
+        "checkpoint": checkpoints[0],
+        "checkpoints": checkpoints,
+        "generation": session.sections[0]["generation"],
     }
