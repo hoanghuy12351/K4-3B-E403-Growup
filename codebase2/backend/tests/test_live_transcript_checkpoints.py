@@ -101,7 +101,8 @@ def test_runtime_generation_uses_bounded_transcript_and_slide_evidence() -> None
     assert "T04-042" not in provider.user_prompt
     assert "slide:day1-ai-llm-foundation:9" in provider.user_prompt
     assert "slide:day1-ai-llm-foundation:10" not in provider.user_prompt
-    assert plan["status"] == "open"
+    assert plan["status"] == "preview"
+    assert session.active_question_ids == []
 
 
 def test_duplicate_trigger_does_not_repeat_provider_or_question_records() -> None:
@@ -114,6 +115,24 @@ def test_duplicate_trigger_does_not_repeat_provider_or_question_records() -> Non
     assert generated is False
     assert provider.calls == 1
     assert len(session.sections) == 1
+
+
+def test_regeneration_replaces_private_preview_with_the_updated_lecturer_prompt() -> None:
+    service = _service()
+    session = _live_session(service)
+    _reach_transformer(service, session.id)
+    provider = FakeProvider()
+    service.trigger_live_checkpoint(session.id, "cp-transformer-breakthrough", settings=AISettings(mode="llm"), provider=provider)
+    first_question_id = session.sections[0]["question"]["id"]
+    _, plan, generated = service.regenerate_live_checkpoint(
+        session.id, "cp-transformer-breakthrough", teacher_prompt="Tạo câu hỏi tình huống khó hơn.", settings=AISettings(mode="llm"), provider=provider,
+    )
+    assert generated is True
+    assert provider.calls == 2
+    assert "Tạo câu hỏi tình huống khó hơn." in provider.user_prompt
+    assert plan["status"] == "preview"
+    assert len(session.sections) == 1
+    assert session.sections[0]["question"]["id"] != first_question_id
 
 
 def test_provider_failure_keeps_checkpoint_retryable_without_active_question() -> None:
@@ -133,6 +152,7 @@ def test_generated_question_keeps_student_room_state_private_and_aggregates_answ
     service.start_session(session.id)
     _reach_transformer(service, session.id)
     service.trigger_live_checkpoint(session.id, "cp-transformer-breakthrough", settings=AISettings(mode="llm"), provider=FakeProvider())
+    service.open_live_checkpoint(session.id, "cp-transformer-breakthrough")
     joined = service.join_room(session.room_code, "Student")
     state = service.room_state(session.room_code, joined["participantId"])
     assert state["activeQuestion"]

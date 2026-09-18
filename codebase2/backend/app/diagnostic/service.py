@@ -197,7 +197,7 @@ class DiagnosticSessionService:
         plan = next((item for item in session.checkpoint_plans if item["id"] == plan_id), None)
         if plan is None:
             raise SessionValidationError("The checkpoint plan does not belong to this session.")
-        if plan["status"] in {"generating", "open", "closed"}:
+        if plan["status"] in {"generating", "preview", "open", "closed"}:
             return session, plan, False
         if session.current_slide < plan["triggerSlide"] or session.current_transcript_ref is None:
             raise SessionValidationError("This checkpoint has not been reached yet.")
@@ -206,8 +206,8 @@ class DiagnosticSessionService:
         if positions[session.current_transcript_ref] < positions[plan["requiredTranscriptRef"]]:
             raise SessionValidationError("The required lecture transcript has not been heard yet.")
         earlier = [item for item in session.checkpoint_plans if item["order"] < plan["order"]]
-        if any(item["status"] in {"planned", "generating", "open"} for item in earlier):
-            raise SessionValidationError("Close earlier checkpoints before opening the next one.")
+        if any(item["status"] in {"planned", "generating", "preview", "open"} for item in earlier):
+            raise SessionValidationError("Finish earlier checkpoints before opening the next one.")
         plan["status"] = "generating"
         try:
             analysis = get_preanalyzed_section(str(plan["sectionId"]))
@@ -250,15 +250,43 @@ class DiagnosticSessionService:
                 })
             session.sections.extend(new_sections)
             plan["questionIds"] = [item["question"]["id"] for item in new_sections]
-            plan["status"] = "open"
+            plan["status"] = "preview"
             session.status = "live"
-            session.active_question_ids = list(plan["questionIds"])
-            session.active_question_id = session.active_question_ids[0] if session.active_question_ids else None
+            session.active_question_ids = []
+            session.active_question_id = None
             return session, plan, True
         except Exception:
             plan["status"] = "failed"
             plan["questionIds"] = []
             raise
+
+    def open_live_checkpoint(self, session_id: str, plan_id: str) -> DiagnosticSession:
+        """Expose a lecturer-approved preview to students through existing room polling."""
+        session = self.get_session(session_id)
+        plan = next((item for item in session.checkpoint_plans if item["id"] == plan_id), None)
+        if plan is None or plan["status"] != "preview" or not plan["questionIds"]:
+            raise SessionValidationError("The requested checkpoint preview is not ready to open.")
+        session.status = "live"
+        session.active_question_ids = list(plan["questionIds"])
+        session.active_question_id = session.active_question_ids[0]
+        plan["status"] = "open"
+        return session
+
+    def regenerate_live_checkpoint(self, session_id: str, plan_id: str, *, teacher_prompt: str, settings: AISettings, provider: Any = None) -> tuple[DiagnosticSession, dict[str, Any], bool]:
+        """Replace a private preview with a new real-provider result using lecturer feedback."""
+        session = self.get_session(session_id)
+        plan = next((item for item in session.checkpoint_plans if item["id"] == plan_id), None)
+        if plan is None or plan["status"] not in {"preview", "failed"}:
+            raise SessionValidationError("Only a private or failed checkpoint can be generated again.")
+        stale_ids = set(plan["questionIds"])
+        session.sections = [item for item in session.sections if item["question"]["id"] not in stale_ids]
+        session.responses = [item for item in session.responses if item.question_id not in stale_ids]
+        session.active_question_ids = [item for item in session.active_question_ids if item not in stale_ids]
+        session.active_question_id = session.active_question_ids[0] if session.active_question_ids else None
+        plan["questionIds"] = []
+        plan["teacherPrompt"] = teacher_prompt
+        plan["status"] = "planned"
+        return self.trigger_live_checkpoint(session_id, plan_id, settings=settings, provider=provider)
 
     def close_live_checkpoint(self, session_id: str, plan_id: str) -> DiagnosticSession:
         """Close all questions produced by one live plan before resuming the lesson."""
@@ -430,6 +458,18 @@ class DiagnosticSessionService:
             "currentTranscriptRef": session.current_transcript_ref,
             "visibleTranscript": [{"ref": item.ref, "text": item.text} for item in visible_segments(load_live_transcript_segments(), session.current_transcript_ref)] if session.lesson.get("contentMode") == "live_transcript_demo" else [],
         })
+        payload["checkpointPreviews"] = [
+            {
+                "planId": plan["id"],
+                "questions": [
+                    {**item["question"], "sectionId": item["section"]["id"]}
+                    for item in session.sections
+                    if item["question"]["id"] in set(plan["questionIds"])
+                ],
+            }
+            for plan in session.checkpoint_plans
+            if plan["status"] in {"preview", "open", "closed"}
+        ]
         if session.lesson.get("contentMode") == "live_transcript_demo":
             segments = load_live_transcript_segments()
             positions = transcript_positions(segments)

@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { Alert, Button, Card, Descriptions, Progress, QRCode, Spin, Tag } from "antd";
+import { Alert, Button, Card, Descriptions, Input, Progress, QRCode, Spin, Tag } from "antd";
 import AppLayout from "@/components/Layout/AppLayout";
-import { closeLiveCheckpoint, getDiagnosticSession, getDiagnosticSummary, startDiagnosticSession, triggerLiveCheckpoint, updateLiveState, type DiagnosticSession, type DiagnosticSummary, type LiveCheckpointPlan } from "@/services/diagnostic";
+import { closeLiveCheckpoint, getDiagnosticSession, getDiagnosticSummary, openLiveCheckpoint, regenerateLiveCheckpoint, startDiagnosticSession, triggerLiveCheckpoint, updateLiveState, type DiagnosticSession, type DiagnosticSummary, type LiveCheckpointPlan } from "@/services/diagnostic";
 import { API_URL } from "@/services/api";
 
 const recommendationText = { reteach: "Nên giảng lại ngắn phần này trước khi chuyển tiếp.", clarify: "Nên làm rõ thêm một vài ý trước khi tiếp tục.", continue: "Lớp đang theo kịp, có thể tiếp tục bài học.", insufficient_data: "Chưa đủ phản hồi để kết luận." };
@@ -21,6 +21,7 @@ export default function LiveTeachingPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState<string | null>(null);
+  const [revisionPrompts, setRevisionPrompts] = useState<Record<string, string>>({});
   const triggerInFlight = useRef(new Set<string>());
 
   const load = useCallback(async (): Promise<void> => {
@@ -42,9 +43,11 @@ export default function LiveTeachingPage() {
   const plans = session?.checkpointPlans || [];
   const openPlan = plans.find(plan => plan.status === "open");
   const generatingPlan = plans.find(plan => plan.status === "generating");
+  const previewPlan = plans.find(plan => plan.status === "preview");
   const failedPlan = plans.find(plan => plan.status === "failed");
   const pendingPlan = plans.find(plan => plan.status === "planned");
-  const currentPlan = openPlan || generatingPlan || failedPlan || pendingPlan;
+  const currentPlan = openPlan || generatingPlan || previewPlan || failedPlan || pendingPlan;
+  const previewQuestions = session?.checkpointPreviews?.find(item => item.planId === currentPlan?.id)?.questions || [];
   const joinUrl = typeof window === "undefined" ? "/join" : `${window.location.origin}/join`;
   const currentResult = useMemo(() => {
     if (!currentPlan || !summary) return null;
@@ -87,8 +90,24 @@ export default function LiveTeachingPage() {
     finally { setWorking(null); }
   }
 
+  async function openPlanToStudents(plan: LiveCheckpointPlan): Promise<void> {
+    setWorking(plan.id); setError(null);
+    try { await openLiveCheckpoint(sessionId, plan.id); await load(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể mở checkpoint cho học viên."); }
+    finally { setWorking(null); }
+  }
+
+  async function regeneratePlan(plan: LiveCheckpointPlan): Promise<void> {
+    const prompt = (revisionPrompts[plan.id] || plan.teacherPrompt).trim();
+    if (!prompt) return;
+    setWorking(plan.id); setError(null);
+    try { await regenerateLiveCheckpoint(sessionId, plan.id, prompt); await load(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể tạo lại checkpoint."); await load(); }
+    finally { setWorking(null); }
+  }
+
   useEffect(() => {
-    if (!session || session.status === "draft" || openPlan || generatingPlan || !session.nextTranscriptRef) return;
+    if (!session || session.status === "draft" || openPlan || generatingPlan || previewPlan || !session.nextTranscriptRef) return;
     const timer = window.setTimeout(async () => {
       try {
         await updateLiveState(sessionId, { currentSlide: session.currentSlide || 1, currentTranscriptRef: session.nextTranscriptRef as string });
@@ -96,20 +115,20 @@ export default function LiveTeachingPage() {
       } catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể cập nhật transcript trực tiếp."); }
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [generatingPlan, load, openPlan, session, sessionId]);
+  }, [generatingPlan, load, openPlan, previewPlan, session, sessionId]);
 
   useEffect(() => {
-    if (!session || !pendingPlan || openPlan || generatingPlan || pendingPlan.status !== "planned") return;
+    if (!session || !pendingPlan || openPlan || generatingPlan || previewPlan || pendingPlan.status !== "planned") return;
     const reached = (session.currentSlide || 0) >= pendingPlan.triggerSlide && transcriptNumber(session.currentTranscriptRef) >= transcriptNumber(pendingPlan.requiredTranscriptRef);
     if (!reached) return;
     const timer = window.setTimeout(() => void generatePlan(pendingPlan), 0);
     return () => window.clearTimeout(timer);
-  }, [generatePlan, generatingPlan, openPlan, pendingPlan, session]);
+  }, [generatePlan, generatingPlan, openPlan, pendingPlan, previewPlan, session]);
 
-  const statusText = generatingPlan ? "Đang tạo câu hỏi từ nội dung vừa giảng..." : openPlan ? "Đang chờ phản hồi" : failedPlan ? "Checkpoint cần được thử lại" : "Đang nghe bài giảng";
+  const statusText = generatingPlan ? "Đang tạo câu hỏi từ nội dung vừa giảng..." : openPlan ? "Đang chờ phản hồi" : previewPlan ? "Đang xem trước checkpoint" : failedPlan ? "Checkpoint cần được thử lại" : "Đang nghe bài giảng";
   const transcript = session?.visibleTranscript || [];
   const slideUrl = `${API_URL}/api/teaching-agent/live-lesson/slides#page=${session?.currentSlide || 1}&view=FitH`;
-  const isRecording = session?.status !== "draft" && !generatingPlan && !openPlan && !failedPlan;
+  const isRecording = session?.status !== "draft" && !generatingPlan && !openPlan && !previewPlan && !failedPlan;
 
   return <AppLayout>
     <div className="page-heading live-heading"><div><p className="eyebrow">PHÒNG DẠY TRỰC TIẾP</p><h1>{session?.lesson.title || "Đang tải bài giảng"}</h1><p className="muted">Transcript chỉ hiện dần theo nhịp giảng và checkpoint dùng đúng phần nội dung đã xuất hiện.</p></div>{session?.roomCode && <div className="live-room-code"><span>Mã phòng</span><strong>{session.roomCode}</strong></div>}</div>
@@ -119,14 +138,14 @@ export default function LiveTeachingPage() {
         <div className="stage-topline"><Tag color={session.status === "live" ? "red" : session.status === "ready" ? "green" : "blue"}>{session.status === "draft" ? "Bản nháp" : session.status === "ready" ? "Sẵn sàng" : "Đang dạy"}</Tag><span>Slide {session.currentSlide || 1} / 29</span></div>
         <h2>{currentPlan?.sectionTitle || "Đang bắt đầu bài giảng"}</h2><p className="stage-objective">{statusText}</p>
         <iframe key={session.currentSlide || 1} title={`Slide ${session.currentSlide || 1}`} src={slideUrl} style={{ width: "100%", height: 500, border: "1px solid #e5e5e5", borderRadius: 12, margin: "12px 0" }} />
-        <div className="stage-controls">{session.status === "draft" ? <Button type="primary" size="large" loading={working === "start"} onClick={() => void startClassroom()}>Bắt đầu lớp học</Button> : <Button type="primary" size="large" disabled={Boolean(openPlan || generatingPlan) || (session.currentSlide || 1) >= 29} loading={working === "slide"} onClick={() => void advanceSlide()}>Slide tiếp theo</Button>}</div>
-        {currentPlan && <Card size="small" title="Checkpoint hiện tại"><p><strong>Trigger slide {currentPlan.triggerSlide}</strong></p><p className="muted">Yêu cầu giảng viên: {currentPlan.teacherPrompt}</p>{currentPlan.status === "failed" && <Button type="primary" loading={working === currentPlan.id} onClick={() => void generatePlan(currentPlan)}>Thử tạo lại câu hỏi</Button>}{currentPlan.status === "open" && <Button danger loading={working === currentPlan.id} onClick={() => void closePlan(currentPlan)}>Đóng checkpoint</Button>}</Card>}
+        <div className="stage-controls">{session.status === "draft" ? <Button type="primary" size="large" loading={working === "start"} onClick={() => void startClassroom()}>Bắt đầu lớp học</Button> : <Button type="primary" size="large" disabled={Boolean(openPlan || generatingPlan || previewPlan) || (session.currentSlide || 1) >= 29} loading={working === "slide"} onClick={() => void advanceSlide()}>Slide tiếp theo</Button>}</div>
+        {currentPlan && <Card size="small" title="Checkpoint hiện tại"><p><strong>Trigger slide {currentPlan.triggerSlide}</strong></p><p className="muted">Yêu cầu ban đầu: {currentPlan.teacherPrompt}</p>{currentPlan.status === "preview" && <><div className="checkpoint-preview-list">{previewQuestions.map((question, index) => <Card key={question.id} size="small" title={`Câu hỏi ${index + 1}`}><p><strong>{question.question}</strong></p>{question.options.map(option => <p key={option.id}>{option.id}. {option.text}{option.correct ? " (Đáp án đúng)" : ""}</p>)}</Card>)}</div><div className="checkpoint-revision"><Input.TextArea value={revisionPrompts[currentPlan.id] ?? currentPlan.teacherPrompt} onChange={event => setRevisionPrompts(current => ({ ...current, [currentPlan.id]: event.target.value }))} autoSize={{ minRows: 2, maxRows: 4 }} maxLength={2000} placeholder="Ví dụ: đổi thành câu hỏi thực hành, khó hơn." /><div className="checkpoint-revision-actions"><Button loading={working === currentPlan.id} onClick={() => void regeneratePlan(currentPlan)}>Tạo lại</Button><Button type="primary" loading={working === currentPlan.id} onClick={() => void openPlanToStudents(currentPlan)}>Mở checkpoint cho học viên</Button></div></div></>}{currentPlan.status === "failed" && <Button type="primary" loading={working === currentPlan.id} onClick={() => void regeneratePlan(currentPlan)}>Thử tạo lại câu hỏi</Button>}{currentPlan.status === "open" && <Button danger loading={working === currentPlan.id} onClick={() => void closePlan(currentPlan)}>Đóng checkpoint</Button>}</Card>}
       </Card></section>
       <aside className="live-side-panel">
         <Card className="student-join-card" title="Học viên vào lớp"><QRCode value={joinUrl} size={128} bordered={false} /><Descriptions column={1} size="small" items={[{ key: "code", label: "Mã phòng", children: <strong>{session.roomCode}</strong> }, { key: "link", label: "Trang vào lớp", children: <Link href="/join">/join</Link> }]} /></Card>
         <Card title="Live transcription"><div className="recording-status"><div className={`recording-wave${isRecording ? " is-recording" : ""}`} aria-label={isRecording ? "Đang ghi âm" : "Ghi âm đang tạm dừng"}><span /><span /><span /><span /><span /></div><Tag color={isRecording ? "green" : generatingPlan ? "gold" : "red"}>{isRecording ? "Đang ghi âm" : statusText}</Tag></div><div style={{ maxHeight: 260, overflowY: "auto", marginTop: 12 }}>{transcript.length ? transcript.slice(-8).map(item => <p key={item.ref}><strong>{item.ref}</strong> {item.text}</p>) : <p className="muted">Đang chờ lời giảng đầu tiên...</p>}</div></Card>
         <Card className="live-response-card" title="Tín hiệu lớp học">{currentResult ? <><div className="response-number"><strong>{currentResult.totalResponses}</strong><span>phản hồi tại checkpoint</span></div><Progress percent={Math.round(currentResult.correctRate * 100)} strokeColor="#58cc02" /><Tag color={recommendationColor[summary?.recommendation || "insufficient_data"]}>{recommendationText[summary?.recommendation || "insufficient_data"]}</Tag><p className="muted">{currentResult.dominantMisconception?.statement || summary?.reason}</p></> : <p className="muted">Kết quả phản hồi sẽ xuất hiện khi học viên trả lời.</p>}</Card>
-        <Card className="slide-list-card" title="Các checkpoint">{plans.map(plan => <div key={plan.id} style={{ marginBottom: 10 }}><strong>{plan.order}. {plan.sectionTitle}</strong><div><Tag color={plan.status === "open" ? "green" : plan.status === "failed" ? "red" : plan.status === "generating" ? "gold" : "blue"}>{plan.status}</Tag> Slide {plan.triggerSlide}</div></div>)}</Card>
+        <Card className="slide-list-card" title="Các checkpoint">{plans.map(plan => <div key={plan.id} style={{ marginBottom: 10 }}><strong>{plan.order}. {plan.sectionTitle}</strong><div><Tag color={plan.status === "open" ? "green" : plan.status === "preview" ? "purple" : plan.status === "failed" ? "red" : plan.status === "generating" ? "gold" : "blue"}>{plan.status}</Tag> Slide {plan.triggerSlide}</div></div>)}</Card>
       </aside>
     </div>}
   </AppLayout>;

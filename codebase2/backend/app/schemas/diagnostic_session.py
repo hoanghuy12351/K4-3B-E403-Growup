@@ -92,3 +92,17 @@ class LiveStateRequest(BaseModel):
     def strip_transcript_ref(cls, value: object) -> object:
         """Normalize a canonical transcript reference before validation."""
         return value.strip() if isinstance(value, str) else value
+
+
+class LiveCheckpointRegenerateRequest(BaseModel):
+    """Lecturer feedback used to regenerate a private live checkpoint preview."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    teacher_prompt: str = Field(alias="teacherPrompt", min_length=1, max_length=2_000)
+
+    @field_validator("teacher_prompt", mode="before")
+    @classmethod
+    def strip_teacher_prompt(cls, value: object) -> object:
+        """Reject whitespace-only regeneration instructions."""
+        return value.strip() if isinstance(value, str) else value

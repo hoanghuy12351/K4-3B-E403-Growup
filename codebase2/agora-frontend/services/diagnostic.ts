@@ -49,6 +49,10 @@ export interface GeneratedQuestion {
   sourceRefs?: Array<{ type: string; id: string }>;
 }
 
+export type TeacherPreviewQuestion = Omit<GeneratedQuestion, "options"> & {
+  options: Array<DiagnosticOption & { correct: boolean }>;
+};
+
 export interface DiagnosticSession {
   sessionId: string;
   roomCode?: string;
@@ -64,6 +68,7 @@ export interface DiagnosticSession {
   currentTranscriptRef?: string | null;
   nextTranscriptRef?: string | null;
   visibleTranscript?: Array<{ ref: string; text: string }>;
+  checkpointPreviews?: Array<{ planId: string; questions: TeacherPreviewQuestion[] }>;
 }
 
 export interface LiveCheckpointPlan {
@@ -75,7 +80,7 @@ export interface LiveCheckpointPlan {
   triggerSlide: number;
   requiredTranscriptRef: string;
   teacherPrompt: string;
-  status: "planned" | "generating" | "open" | "closed" | "failed";
+  status: "planned" | "generating" | "preview" | "open" | "closed" | "failed";
   questionIds: string[];
 }
 
@@ -441,6 +446,16 @@ export async function updateLiveState(sessionId: string, state: { currentSlide: 
 export async function triggerLiveCheckpoint(sessionId: string, planId: string): Promise<void> {
   if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
   await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoints/${encodeURIComponent(planId)}/trigger`, { method: "POST", timeoutMs: 90000 });
+}
+
+export async function openLiveCheckpoint(sessionId: string, planId: string): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoints/${encodeURIComponent(planId)}/open`, { method: "POST" });
+}
+
+export async function regenerateLiveCheckpoint(sessionId: string, planId: string, teacherPrompt: string): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoints/${encodeURIComponent(planId)}/regenerate`, { method: "POST", timeoutMs: 90000, body: JSON.stringify({ teacherPrompt }) });
 }
 
 export async function closeLiveCheckpoint(sessionId: string, planId: string): Promise<void> {
