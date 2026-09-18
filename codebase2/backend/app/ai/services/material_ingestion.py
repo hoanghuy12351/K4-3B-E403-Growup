@@ -129,8 +129,14 @@ def ingest_material(material: dict[str, Any]) -> IngestedMaterial:
     source_id = _normalize_text(material.get("sourceId"))
     text = _normalize_text(material.get("text"))
     pdf_path = _normalize_text(material.get("pdfPath"))
+    source_blocks = material.get("sourceBlocks")
     if not title or not source_id:
         raise MaterialIngestionError("Lesson title and sourceId are required.")
+    if isinstance(source_blocks, list):
+        blocks = [SourceBlock(page=int(item.get("page") or item.get("slide") or index), text=_normalize_text(item.get("text")), source_id=source_id, source_type=_normalize_text(item.get("type")) or "material", section_title=_normalize_text(item.get("title")) or None) for index, item in enumerate(source_blocks, start=1) if isinstance(item, dict) and _normalize_text(item.get("text"))]
+        if not blocks:
+            raise MaterialIngestionError("The uploaded material contains no extractable text.")
+        return IngestedMaterial(title=title, source_id=source_id, blocks=blocks)
     if text and pdf_path:
         raise MaterialIngestionError("Provide either text or pdfPath, not both.")
     if text:

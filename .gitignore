@@ -5,3 +5,5 @@ node_modules/
 .venv/
 .cp2-publish/
 /data/
+codebase2/backend/storage/
+codebase2/backend/*.db

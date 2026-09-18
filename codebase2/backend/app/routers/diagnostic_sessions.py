@@ -12,6 +12,10 @@ from app.ai.services.material_ingestion import MaterialIngestionError, list_avai
 from app.diagnostic.repository import InMemoryDiagnosticSessionRepository, SessionNotFoundError
 from app.diagnostic.service import DiagnosticSessionService, SessionValidationError
 from app.models.user import Teacher
+from app.models.material import LessonMaterial
+from app.database import get_db
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 from app.routers.auth import current_teacher
 from app.schemas.diagnostic_session import CreateDiagnosticSessionRequest, JoinRoomRequest, StudentResponseRequest
 
@@ -37,20 +41,28 @@ def _provider_authentication_rejected() -> HTTPException:
 
 
 @router.get("/lesson-materials")
-def get_lesson_materials() -> dict[str, list[dict[str, str]]]:
+def get_lesson_materials(teacher: Annotated[Teacher, Depends(current_teacher)], db: Annotated[Session, Depends(get_db)]) -> dict[str, list[dict[str, str]]]:
     """Return selectable PDF lessons discovered from the repository data directory."""
     try:
-        return {"materials": [item.to_dict() for item in list_available_materials()]}
+        uploaded = db.scalars(select(LessonMaterial).where(LessonMaterial.teacher_id == teacher.id)).all()
+        return {"materials": [{"id": item.id, "title": item.title, "sourceId": item.id, "type": item.media_type} for item in uploaded]}
     except FileNotFoundError:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail={"error": {"code": "MATERIAL_DATA_UNAVAILABLE", "message": "Local lesson material is unavailable."}}) from None
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_session(request: CreateDiagnosticSessionRequest, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+def create_session(request: CreateDiagnosticSessionRequest, teacher: Annotated[Teacher, Depends(current_teacher)], db: Annotated[Session, Depends(get_db)]) -> dict[str, Any]:
     """Create a lecturer-reviewable draft with one generated question per section."""
     try:
+        lesson = request.lesson.model_dump(by_alias=True, exclude_none=True)
+        material_id = lesson.get("materialId")
+        if material_id:
+            material = db.scalar(select(LessonMaterial).where(LessonMaterial.id == material_id, LessonMaterial.teacher_id == teacher.id))
+            if not material:
+                raise MaterialIngestionError("The selected lesson material is unavailable.")
+            lesson = {"materialId": material.id, "title": material.title, "sourceId": material.id, "sourceBlocks": material.source_blocks}
         session = service.create_session(
-            lesson=request.lesson.model_dump(by_alias=True, exclude_none=True),
+            lesson=lesson,
             expected_students=request.expected_students,
             teacher_id=teacher.id,
             settings=AISettings.from_env(),

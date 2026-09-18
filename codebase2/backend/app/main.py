@@ -12,6 +12,7 @@ from app.routers.auth import router as auth_router
 from app.routers.diagnostic import router as diagnostic_router
 from app.routers.diagnostic_sessions import router as diagnostic_sessions_router
 from app.routers.classifications import router as classifications_router
+from app.routers.lesson_materials import router as lesson_materials_router
 
 settings = get_settings()
 
@@ -34,6 +35,7 @@ app.include_router(auth_router)
 app.include_router(diagnostic_router, prefix="/api/ai")
 app.include_router(diagnostic_sessions_router, prefix="/api")
 app.include_router(classifications_router, prefix="/api")
+app.include_router(lesson_materials_router, prefix="/api")
 
 
 @app.get("/health")

@@ -27,7 +27,7 @@ class DiagnosticSessionService:
 
     def create_session(self, lesson: dict[str, Any], expected_students: int | None, teacher_id: str | None = None, settings: AISettings | None = None) -> DiagnosticSession:
         """Generate one diagnostic per section and save the session as lecturer-reviewable draft."""
-        if lesson.get("materialId"):
+        if lesson.get("materialId") and not lesson.get("sourceBlocks"):
             lesson = resolve_available_material(str(lesson["materialId"]))
         material = ingest_material(lesson)
         section_diagnostics = generate_lesson_diagnostic(material, settings=settings)

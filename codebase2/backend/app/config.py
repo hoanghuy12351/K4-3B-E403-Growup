@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     frontend_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     session_hours: int = 12
     cookie_secure: bool = False
+    upload_max_mb: int = 25
+    material_storage_dir: str = "storage/materials"
+    agent_max_steps: int = 4
+    agent_max_history_messages: int = 20
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
