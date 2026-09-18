@@ -62,6 +62,13 @@ class DiagnosticSessionService:
         """Read a session through the replaceable persistence boundary."""
         return self.repository.get_session(session_id)
 
+    def require_teacher(self, session_id: str, teacher_id: str) -> DiagnosticSession:
+        """Ensure one authenticated teacher cannot control another teacher's session."""
+        session = self.get_session(session_id)
+        if session.teacher_id and session.teacher_id != teacher_id:
+            raise SessionValidationError("This classroom belongs to another teacher.")
+        return session
+
     def start_session(self, session_id: str) -> DiagnosticSession:
         """Mark lecturer-reviewed draft material as available for student responses."""
         session = self.get_session(session_id)

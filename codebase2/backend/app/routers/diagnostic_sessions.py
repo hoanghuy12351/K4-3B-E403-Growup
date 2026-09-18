@@ -1,15 +1,18 @@
 """FastAPI routes for lecturer and student diagnostic-session workflows."""
 
 import logging
+from typing import Annotated
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.ai import AISettings
 from app.ai.llm.errors import LLMAuthenticationError, LLMConfigurationError, LLMMalformedResponseError, LLMProviderError, LLMRateLimitError, LLMTimeoutError, LLMValidationError
 from app.ai.services.material_ingestion import MaterialIngestionError, list_available_materials
 from app.diagnostic.repository import InMemoryDiagnosticSessionRepository, SessionNotFoundError
 from app.diagnostic.service import DiagnosticSessionService, SessionValidationError
+from app.models.user import Teacher
+from app.routers.auth import current_teacher
 from app.schemas.diagnostic_session import CreateDiagnosticSessionRequest, JoinRoomRequest, StudentResponseRequest
 
 logger = logging.getLogger(__name__)
@@ -43,12 +46,13 @@ def get_lesson_materials() -> dict[str, list[dict[str, str]]]:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_session(request: CreateDiagnosticSessionRequest) -> dict[str, Any]:
+def create_session(request: CreateDiagnosticSessionRequest, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
     """Create a lecturer-reviewable draft with one generated question per section."""
     try:
         session = service.create_session(
             lesson=request.lesson.model_dump(by_alias=True, exclude_none=True),
             expected_students=request.expected_students,
+            teacher_id=teacher.id,
             settings=AISettings.from_env(),
         )
         return {
@@ -82,9 +86,10 @@ def create_session(request: CreateDiagnosticSessionRequest) -> dict[str, Any]:
 
 
 @router.post("/{session_id}/start")
-def start_session(session_id: str) -> dict[str, str]:
+def start_session(session_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, str]:
     """Allow the lecturer to mark a reviewed draft as active for students."""
     try:
+        service.require_teacher(session_id, teacher.id)
         session = service.start_session(session_id)
         return {"sessionId": session.id, "roomCode": session.room_code, "status": session.status}
     except SessionNotFoundError:
@@ -113,9 +118,10 @@ def submit_student_response(session_id: str, request: StudentResponseRequest) ->
 
 
 @router.post("/{session_id}/checkpoint/{question_id}/open")
-def open_checkpoint(session_id: str, question_id: str) -> dict[str, str | None]:
+def open_checkpoint(session_id: str, question_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, str | None]:
     """Make a single checkpoint visible to joined students."""
     try:
+        service.require_teacher(session_id, teacher.id)
         session = service.open_checkpoint(session_id, question_id)
         return {"sessionId": session.id, "status": session.status, "activeQuestionId": session.active_question_id}
     except SessionNotFoundError:
@@ -125,9 +131,10 @@ def open_checkpoint(session_id: str, question_id: str) -> dict[str, str | None]:
 
 
 @router.post("/{session_id}/checkpoint/{question_id}/close")
-def close_checkpoint(session_id: str, question_id: str) -> dict[str, str | None]:
+def close_checkpoint(session_id: str, question_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, str | None]:
     """Hide an active checkpoint without ending the classroom."""
     try:
+        service.require_teacher(session_id, teacher.id)
         session = service.close_checkpoint(session_id, question_id)
         return {"sessionId": session.id, "status": session.status, "activeQuestionId": session.active_question_id}
     except SessionNotFoundError:
@@ -159,9 +166,10 @@ def room_state(room_code: str, participantId: str) -> dict[str, Any]:
 
 
 @router.get("/{session_id}/summary")
-def get_lecturer_summary(session_id: str) -> dict[str, Any]:
+def get_lecturer_summary(session_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
     """Return only aggregated evidence and a non-binding lecturer recommendation."""
     try:
+        service.require_teacher(session_id, teacher.id)
         return service.summary(session_id)
     except SessionNotFoundError:
         raise _not_found() from None
