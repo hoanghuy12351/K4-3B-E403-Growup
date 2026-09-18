@@ -18,7 +18,7 @@ class DiagnosticOption(StrictModel):
     id: str = Field(min_length=1)
     text: str = Field(min_length=1)
     correct: bool
-    misconceptionId: str | None = None
+    misconceptionId: str | None
 
 
 class DiagnosticSource(StrictModel):
