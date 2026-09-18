@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Diagnostic question",
+  "type": "object",
+  "required": ["id", "topic", "concept", "question", "learningObjective", "source", "options"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "topic": { "type": "string", "minLength": 1 },
+    "concept": { "type": "string", "minLength": 1 },
+    "question": { "type": "string", "minLength": 1 },
+    "learningObjective": { "type": "string", "minLength": 1 },
+    "source": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["type", "id"], "properties": { "type": { "type": "string", "minLength": 1 }, "id": { "type": "string", "minLength": 1 } } } },
+    "options": { "type": "array", "minItems": 1, "contains": { "type": "object", "properties": { "correct": { "const": true } }, "required": ["correct"] }, "minContains": 1, "maxContains": 1, "items": { "type": "object", "required": ["id", "text", "correct", "misconceptionId"], "properties": { "id": { "type": "string", "minLength": 1 }, "text": { "type": "string", "minLength": 1 }, "correct": { "type": "boolean" }, "misconceptionId": { "type": ["string", "null"] } } } }
+  }
+}
