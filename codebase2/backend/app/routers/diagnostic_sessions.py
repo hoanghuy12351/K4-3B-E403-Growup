@@ -109,10 +109,10 @@ def start_session(session_id: str, teacher: Annotated[Teacher, Depends(current_t
 
 
 @router.get("/{session_id}")
-def get_student_session(session_id: str) -> dict[str, Any]:
-    """Return student-safe questions without answer keys or other responses."""
+def get_teacher_session(session_id: str, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+    """Return checkpoint review data only to the owning teacher."""
     try:
-        return service.student_view(service.get_session(session_id))
+        return service.student_view(service.require_teacher(session_id, teacher.id))
     except SessionNotFoundError:
         raise _not_found() from None
 
