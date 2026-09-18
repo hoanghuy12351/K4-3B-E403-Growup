@@ -298,6 +298,14 @@ body { background: #fff; color: var(--ink); font-family: "Nunito", "Segoe UI", A
 
 
 .dashboard-step-card { border-radius: 20px; }
+.agent-message, .teacher-message { display: flex; gap: 12px; max-width: 860px; margin: 18px 0; padding: 16px; border: 2px solid var(--line); border-radius: 18px; }
+.agent-message { background: var(--soft-green); }
+.teacher-message { margin-left: auto; background: #eef8ff; }
+.agent-message p, .teacher-message p { margin: 6px 0 0; }
+.full-width { width: 100%; }
+.section-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.agent-composer { margin-top: 24px; padding-top: 20px; border-top: 2px solid var(--line); }
+.composer-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-weight: 800; }
 .dashboard-step-top { display: flex; align-items: flex-start; justify-content: space-between; }
 .dashboard-step-top .step-bubble { margin-bottom: 20px; }
 .dashboard-step-top b { color: #c8c8c8; }

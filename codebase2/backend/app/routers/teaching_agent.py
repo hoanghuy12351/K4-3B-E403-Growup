@@ -1,20 +1,21 @@
 """Teacher-only endpoints for the fixed, section-scoped checkpoint demo."""
 
-import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.ai.services.demo_checkpoint_catalog import DemoCheckpointCatalogError, get_demo_section, load_demo_catalog
+from app.ai.config import AISettings
+from app.ai.llm.errors import LLMAuthenticationError, LLMConfigurationError, LLMMalformedResponseError, LLMProviderError, LLMRateLimitError, LLMTimeoutError, LLMValidationError
+from app.ai.services.demo_slide_analysis import generate_preanalyzed_checkpoints, get_preanalyzed_section
 from app.diagnostic.service import SessionValidationError
 from app.models.user import Teacher
 from app.routers.auth import current_teacher
 from app.routers.diagnostic_sessions import service
-from app.schemas.teaching_agent import GenerateDemoCheckpointRequest
+from app.schemas.teaching_agent import GenerateAgentCheckpointRequest, GenerateDemoCheckpointRequest
 
 
 router = APIRouter(prefix="/teaching-agent", tags=["Teaching agent"])
-DEMO_PROCESS_DELAY_SECONDS = 5
 
 
 def _error(status_code: int, code: str, message: str) -> HTTPException:
@@ -35,7 +36,16 @@ def get_demo(teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str,
     return {
         "lesson": {"id": lesson["id"], "title": lesson["title"]},
         "agentMessage": catalog["agentMessage"],
-        "sections": [{"id": section["id"], "title": section["title"]} for section in sections],
+        "sections": [
+            {
+                "id": section["id"],
+                "title": section["title"],
+                "concepts": get_preanalyzed_section(section["id"])["concepts"],
+                "learningObjectives": get_preanalyzed_section(section["id"])["learningObjectives"],
+                "misconceptions": get_preanalyzed_section(section["id"])["misconceptions"],
+            }
+            for section in sections
+        ],
         "mode": "preset_demo",
     }
 
@@ -45,7 +55,6 @@ def generate_demo_checkpoint(request: GenerateDemoCheckpointRequest, teacher: An
     """Create one prepared checkpoint session without runtime AI or source parsing."""
     try:
         get_demo_section(request.section_id)
-        time.sleep(DEMO_PROCESS_DELAY_SECONDS)
         session = service.create_preset_demo_session(
             teacher_id=teacher.id,
             section_id=request.section_id,
@@ -74,4 +83,61 @@ def generate_demo_checkpoint(request: GenerateDemoCheckpointRequest, teacher: An
         "checkpoint": checkpoints[0],
         "checkpoints": checkpoints,
         "generation": session.sections[0]["generation"],
+    }
+
+
+@router.post("/demo/generate", status_code=status.HTTP_201_CREATED)
+def generate_agent_checkpoints(request: GenerateAgentCheckpointRequest, teacher: Annotated[Teacher, Depends(current_teacher)]) -> dict[str, Any]:
+    """Create a draft from provider-generated questions grounded in demo analysis."""
+    try:
+        analysis = get_preanalyzed_section(request.section_id)
+        sections = generate_preanalyzed_checkpoints(
+            analysis=analysis,
+            teacher_request=request.teacher_request,
+            question_count=request.question_count,
+            settings=AISettings.from_env(),
+        )
+        session = service.create_agent_demo_session(
+            teacher_id=teacher.id,
+            analysis=analysis,
+            sections=sections,
+            expected_students=request.expected_students,
+        )
+    except KeyError:
+        raise _error(status.HTTP_404_NOT_FOUND, "DEMO_SECTION_NOT_FOUND", "The requested demo section was not found.") from None
+    except LLMConfigurationError:
+        raise _error(status.HTTP_503_SERVICE_UNAVAILABLE, "AI_PROVIDER_CONFIGURATION_ERROR", "The Teaching Agent requires a valid API key and model configuration.") from None
+    except LLMAuthenticationError:
+        raise _error(status.HTTP_503_SERVICE_UNAVAILABLE, "AI_PROVIDER_AUTHENTICATION_ERROR", "The configured AI provider rejected the server credentials.") from None
+    except LLMTimeoutError:
+        raise _error(status.HTTP_504_GATEWAY_TIMEOUT, "AI_PROVIDER_TIMEOUT", "The AI provider took too long to create checkpoints.") from None
+    except (LLMProviderError, LLMRateLimitError):
+        raise _error(status.HTTP_502_BAD_GATEWAY, "AI_PROVIDER_ERROR", "The configured AI provider could not create checkpoints.") from None
+    except (LLMMalformedResponseError, LLMValidationError):
+        raise _error(status.HTTP_502_BAD_GATEWAY, "AI_OUTPUT_INVALID", "The AI returned a checkpoint in an invalid format. Please generate again.") from None
+    except (DemoCheckpointCatalogError, SessionValidationError, TypeError, ValueError):
+        raise _error(status.HTTP_503_SERVICE_UNAVAILABLE, "DEMO_CATALOG_UNAVAILABLE", "Pre-analyzed demo data is unavailable.") from None
+    checkpoints = []
+    for item in session.sections:
+        question = item["question"]
+        checkpoints.append({
+            "id": question["id"],
+            "sectionId": item["section"]["id"],
+            "concept": question["concept"],
+            "question": question["question"],
+            "learningObjective": question["learningObjective"],
+            "options": [{"id": option["id"], "text": option["text"]} for option in question["options"]],
+            "sourceRefs": item["section"]["sourceRefs"],
+        })
+    first_generation = session.sections[0]["generation"]
+    return {
+        "agentMessage": f"Em đã tạo {len(checkpoints)} checkpoint cho phần {analysis['section']['title']} theo yêu cầu của thầy/cô.",
+        "sessionId": session.id,
+        "roomCode": session.room_code,
+        "status": session.status,
+        "lesson": analysis["lesson"],
+        "selectedSection": {"id": analysis["section"]["id"], "title": analysis["section"]["title"]},
+        "teacherRequest": request.teacher_request,
+        "checkpoints": checkpoints,
+        "generation": first_generation,
     }

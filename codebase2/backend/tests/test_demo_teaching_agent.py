@@ -9,9 +9,10 @@ os.environ["FRONTEND_ORIGINS"] = "http://localhost:3000"
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.ai.services.demo_checkpoint_catalog import build_demo_session_sections, list_demo_sections  # noqa: E402
+from app.ai.services.demo_slide_analysis import get_preanalyzed_section  # noqa: E402
+from app.ai.llm.models import LLMDiagnosticResult  # noqa: E402
 from app.diagnostic import service as diagnostic_service  # noqa: E402
 from app.main import app  # noqa: E402
-from app.routers import teaching_agent  # noqa: E402
 
 
 def _register_teacher(client: TestClient) -> None:
@@ -22,13 +23,6 @@ def _register_teacher(client: TestClient) -> None:
         "password": "secure-demo-password",
     })
     assert response.status_code == 201
-
-
-def _disable_demo_delay(monkeypatch) -> list[int]:
-    """Replace the configured UX delay while unit tests run."""
-    delays: list[int] = []
-    monkeypatch.setattr(teaching_agent.time, "sleep", lambda seconds: delays.append(seconds))
-    return delays
 
 
 def test_static_fixtures_define_all_prepared_sections() -> None:
@@ -60,6 +54,16 @@ def test_static_fixtures_define_all_prepared_sections() -> None:
             assert session_section["generation"]["model"] is None
 
 
+def test_preanalyzed_section_contains_only_grounding_data() -> None:
+    analysis = get_preanalyzed_section("attention-context")
+    assert analysis["lesson"]["title"] == "AI & LLM Foundation"
+    assert analysis["concepts"] == ["attention", "context management", "context rot"]
+    assert analysis["learningObjectives"]
+    assert analysis["misconceptions"]
+    assert analysis["allowedSourceRefs"]
+    assert "question" not in analysis
+
+
 def test_demo_endpoints_use_static_lookup_without_runtime_ai(monkeypatch) -> None:
     def fail(*args, **kwargs):
         raise AssertionError("Preset demo must not call runtime AI")
@@ -75,8 +79,6 @@ def test_demo_endpoints_use_static_lookup_without_runtime_ai(monkeypatch) -> Non
     monkeypatch.setattr("app.ai.services.transcript_ingestion.parse_transcript_file", fail)
     monkeypatch.setattr("app.ai.services.section_evidence.build_section_evidence", fail)
     monkeypatch.setattr("app.ai.services.section_checkpoint_service.generate_checkpoint_for_section", fail)
-    delays = _disable_demo_delay(monkeypatch)
-
     with TestClient(app) as client:
         _register_teacher(client)
         selection = client.get("/api/teaching-agent/demo")
@@ -100,7 +102,6 @@ def test_demo_endpoints_use_static_lookup_without_runtime_ai(monkeypatch) -> Non
             "retryCount": 0,
             "usage": None,
         }
-    assert delays == [teaching_agent.DEMO_PROCESS_DELAY_SECONDS]
 
 
 def test_preset_session_keeps_classroom_flow_private_and_offline(monkeypatch) -> None:
@@ -111,8 +112,6 @@ def test_preset_session_keeps_classroom_flow_private_and_offline(monkeypatch) ->
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
     monkeypatch.setattr(diagnostic_service, "classify_explanation", fail)
-    _disable_demo_delay(monkeypatch)
-
     with TestClient(app) as client:
         _register_teacher(client)
         created = client.post("/api/teaching-agent/demo/checkpoints", json={"sectionId": "attention-context"})
@@ -145,8 +144,7 @@ def test_preset_session_keeps_classroom_flow_private_and_offline(monkeypatch) ->
         assert client.get(f"/api/diagnostic-sessions/{session_id}/summary").status_code == 200
 
 
-def test_demo_endpoints_require_teacher_and_reject_unknown_section(monkeypatch) -> None:
-    _disable_demo_delay(monkeypatch)
+def test_demo_endpoints_require_teacher_and_reject_unknown_section() -> None:
     with TestClient(app) as client:
         assert client.get("/api/teaching-agent/demo").status_code == 401
         assert client.post("/api/teaching-agent/demo/checkpoints", json={"sectionId": "unknown"}).status_code == 401
@@ -155,3 +153,52 @@ def test_demo_endpoints_require_teacher_and_reject_unknown_section(monkeypatch) 
         response = client.post("/api/teaching-agent/demo/checkpoints", json={"sectionId": "unknown"})
         assert response.status_code == 404
         assert response.json()["detail"]["error"]["code"] == "DEMO_SECTION_NOT_FOUND"
+
+
+def test_agent_generation_uses_preanalyzed_data_without_runtime_parsing(monkeypatch) -> None:
+    captured: list[dict] = []
+
+    def fake_generation(**kwargs):
+        captured.append(kwargs)
+        source = kwargs["teaching_context"]["allowedSourceRefs"][0]
+        return LLMDiagnosticResult.model_validate({
+            "topic": "AI & LLM Foundation",
+            "concepts": ["attention", "context management"],
+            "learningObjective": "Explain why relevant context matters.",
+            "misconceptions": [{"id": "m-attention-02", "concept": "context management", "statement": "More context is always better.", "evidenceTurnIds": []}],
+            "question": {
+                "id": "provider-id", "topic": "AI & LLM Foundation", "concept": "context management",
+                "question": "Which context strategy is most appropriate?", "learningObjective": "Explain why relevant context matters.",
+                "source": [source],
+                "options": [
+                    {"id": "A", "text": "Keep the context relevant and concise.", "correct": True, "misconceptionId": None},
+                    {"id": "B", "text": "Always include all available context.", "correct": False, "misconceptionId": "m-attention-02"},
+                    {"id": "C", "text": "Ignore the important task instruction.", "correct": False, "misconceptionId": "m-attention-02"},
+                    {"id": "D", "text": "Assume context is permanent memory.", "correct": False, "misconceptionId": "m-attention-02"},
+                ],
+            },
+        }), {"mode": "llm", "provider": "test", "model": "test-model", "latencyMs": 1, "fallbackUsed": False, "fallbackReason": None, "retryCount": 0, "usage": None}
+
+    def fail(*args, **kwargs):
+        raise AssertionError("Demo generation must not parse raw lesson files")
+
+    monkeypatch.setenv("AI_MODE", "llm")
+    monkeypatch.setattr("app.ai.services.demo_slide_analysis.generate_llm_diagnostic", fake_generation)
+    monkeypatch.setattr("app.ai.services.slide_evidence.load_slide_evidence", fail)
+    monkeypatch.setattr("app.ai.services.transcript_ingestion.parse_transcript_file", fail)
+    with TestClient(app) as client:
+        _register_teacher(client)
+        response = client.post("/api/teaching-agent/demo/generate", json={
+            "sectionId": "attention-context", "teacherRequest": "Create medium scenario questions.", "questionCount": 3, "expectedStudents": 30,
+        })
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["status"] == "draft"
+        assert payload["generation"]["mode"] == "llm_preanalyzed_demo"
+        assert payload["generation"]["fallbackUsed"] is False
+        assert [item["id"] for item in payload["checkpoints"]] == ["attention-context-q01", "attention-context-q02", "attention-context-q03"]
+        assert "correct" not in str(payload["checkpoints"])
+    assert len(captured) == 3
+    assert all(item["teacher_request"] == "Create medium scenario questions." for item in captured)
+    assert "PREVIOUS_QUESTIONS" in captured[1]["variation_instruction"]
+    assert "Which context strategy is most appropriate?" in captured[1]["variation_instruction"]

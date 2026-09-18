@@ -9,6 +9,9 @@ export interface LessonMaterial {
 export interface PresetDemoSection {
   id: string;
   title: string;
+  concepts: string[];
+  learningObjectives: string[];
+  misconceptions: Array<{ id: string; statement: string }>;
 }
 
 export interface PresetDemoCatalog {
@@ -38,6 +41,7 @@ export interface GeneratedQuestion {
   question: string;
   learningObjective?: string;
   options: DiagnosticOption[];
+  sourceRefs?: Array<{ type: string; id: string }>;
 }
 
 export interface DiagnosticSession {
@@ -47,6 +51,7 @@ export interface DiagnosticSession {
   sections: DiagnosticSection[];
   questions: GeneratedQuestion[];
   status: string;
+  activeQuestionId?: string | null;
   createdAt: string;
 }
 
@@ -61,6 +66,38 @@ export interface ActiveQuestion {
   sectionId: string;
   question: string;
   options: Array<{ id: string; text: string }>;
+}
+
+export interface AgentGenerateRequest {
+  sectionId: string;
+  teacherRequest: string;
+  questionCount: number;
+  expectedStudents: number;
+}
+
+export interface AgentGeneratedSession {
+  agentMessage: string;
+  sessionId: string;
+  roomCode: string;
+  status: string;
+  selectedSection: { id: string; title: string };
+  teacherRequest: string;
+  checkpoints: GeneratedQuestion[];
+  generation: { mode: string; provider: string | null; model: string | null; fallbackUsed: boolean };
+}
+
+export interface DiagnosticSummary {
+  respondingStudents: number;
+  expectedStudents: number | null;
+  recommendation: "reteach" | "clarify" | "continue" | "insufficient_data";
+  reason: string;
+  lecturerDecisionRequired: boolean;
+  sectionResults: Array<{
+    sectionId: string;
+    totalResponses: number;
+    correctRate: number;
+    dominantMisconception: { statement?: string } | null;
+  }>;
 }
 
 export async function joinRoom(roomCode: string, displayName: string): Promise<RoomJoinResult> {
@@ -104,10 +141,34 @@ export async function createPresetDemoCheckpoint(sectionId: string, expectedStud
   });
 }
 
+export async function generateAgentCheckpoints(request: AgentGenerateRequest): Promise<AgentGeneratedSession> {
+  return apiRequest<AgentGeneratedSession>("/api/teaching-agent/demo/generate", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify(request),
+  });
+}
+
 export async function getDiagnosticSession(sessionId: string): Promise<DiagnosticSession> {
   return apiRequest<DiagnosticSession>(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}`);
 }
 
 export async function startDiagnosticSession(sessionId: string): Promise<{ sessionId: string; roomCode: string; status: string }> {
   return apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/start`, { method: "POST" });
+}
+
+export async function openCheckpoint(sessionId: string, questionId: string): Promise<void> {
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoint/${encodeURIComponent(questionId)}/open`, { method: "POST" });
+}
+
+export async function closeCheckpoint(sessionId: string, questionId: string): Promise<void> {
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoint/${encodeURIComponent(questionId)}/close`, { method: "POST" });
+}
+
+export async function submitStudentResponse(sessionId: string, request: { participantId: string; questionId: string; sectionId: string; optionId: string; explanation?: string }): Promise<void> {
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/responses`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export async function getDiagnosticSummary(sessionId: string): Promise<DiagnosticSummary> {
+  return apiRequest<DiagnosticSummary>(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/summary`);
 }

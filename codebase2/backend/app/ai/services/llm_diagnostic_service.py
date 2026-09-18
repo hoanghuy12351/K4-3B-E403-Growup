@@ -24,7 +24,22 @@ def _bounded_evidence(historical_questions: list[dict[str, Any]], settings: AISe
     return evidence
 
 
-def _build_user_prompt(teaching_context: dict[str, Any], concept_seed: dict[str, Any], evidence: list[dict[str, str]]) -> str:
+def _build_user_prompt(teaching_context: dict[str, Any], concept_seed: dict[str, Any], evidence: list[dict[str, str]], teacher_request: str | None = None, variation_instruction: str | None = None) -> str:
+    if teaching_context.get("preanalyzedSection") is not None:
+        return "\n".join([
+            "<PREANALYZED_SLIDE_SECTION>",
+            json.dumps(teaching_context["preanalyzedSection"], ensure_ascii=False),
+            "</PREANALYZED_SLIDE_SECTION>",
+            "<LECTURER_REQUEST>",
+            teacher_request or "Create a balanced classroom diagnostic question.",
+            "</LECTURER_REQUEST>",
+            "<VARIATION>",
+            variation_instruction or "Create one distinct assessment angle.",
+            "</VARIATION>",
+            "<TASK>",
+            "Generate exactly one four-option MCQ grounded only in PREANALYZED_SLIDE_SECTION. Lecturer preference adjusts style, difficulty, and focus but never overrides grounding. Use only allowedSourceRefs, exactly one correct answer, and existing misconception IDs for distractors when applicable. Return only data matching the supplied schema.",
+            "</TASK>",
+        ])
     if teaching_context.get("slideEvidence") is not None and teaching_context.get("transcriptEvidence") is not None:
         return "\n".join([
             "<SELECTED_SECTION>",
@@ -56,7 +71,7 @@ def _build_user_prompt(teaching_context: dict[str, Any], concept_seed: dict[str,
     ])
 
 
-def generate_llm_diagnostic(*, teaching_context: dict[str, Any], concept_seed: dict[str, Any], historical_questions: list[dict[str, Any]], settings: AISettings, provider: Any = None) -> tuple[LLMDiagnosticResult, dict[str, Any]]:
+def generate_llm_diagnostic(*, teaching_context: dict[str, Any], concept_seed: dict[str, Any], historical_questions: list[dict[str, Any]], settings: AISettings, provider: Any = None, teacher_request: str | None = None, variation_instruction: str | None = None) -> tuple[LLMDiagnosticResult, dict[str, Any]]:
     """Call one selected provider, then parse and ground its diagnostic result locally."""
     evidence = _bounded_evidence(historical_questions, settings)
     request_id = str(uuid.uuid4())
@@ -64,7 +79,7 @@ def generate_llm_diagnostic(*, teaching_context: dict[str, Any], concept_seed: d
     started = time.perf_counter()
     provider_result = provider.generate_structured(
         system_prompt=SYSTEM_PROMPT,
-        user_prompt=_build_user_prompt(teaching_context, concept_seed, evidence),
+        user_prompt=_build_user_prompt(teaching_context, concept_seed, evidence, teacher_request, variation_instruction),
         schema=LLMDiagnosticResult.model_json_schema(),
         request_id=request_id,
     )

@@ -86,6 +86,26 @@ class DiagnosticSessionService:
             expected_students=expected_students,
         ))
 
+    def create_agent_demo_session(self, *, teacher_id: str, analysis: dict[str, Any], sections: list[dict[str, Any]], expected_students: int | None) -> DiagnosticSession:
+        """Persist generated, reviewable demo questions from pre-analyzed lesson data."""
+        lesson = analysis["lesson"]
+        selected = analysis["section"]
+        return self.repository.create_session(DiagnosticSession(
+            id=str(uuid4()),
+            teacher_id=teacher_id,
+            room_code=self._room_code(),
+            lesson={
+                "id": lesson["id"],
+                "materialId": lesson["id"],
+                "title": lesson["title"],
+                "sourceId": lesson["id"],
+                "contentMode": "preanalyzed_demo",
+                "selectedSectionId": selected["id"],
+            },
+            sections=sections,
+            expected_students=expected_students,
+        ))
+
     def _room_code(self) -> str:
         """Generate a short public code while keeping the UUID internal."""
         alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -174,7 +194,7 @@ class DiagnosticSessionService:
         selected_option = next(option for option in question_section["question"]["options"] if option.get("id") == option_id)
         classification = None
         if explanation:
-            if session.lesson.get("contentMode") == "preset_demo":
+            if session.lesson.get("contentMode") in {"preset_demo", "preanalyzed_demo"}:
                 classification = self._preset_classification(question_section, selected_option).to_dict()
             else:
                 rubric = rubric_from_diagnostic(question_section)
