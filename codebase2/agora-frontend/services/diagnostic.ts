@@ -67,6 +67,13 @@ export async function listLessonMaterials(): Promise<LessonMaterial[]> {
   return response.materials;
 }
 
+export async function uploadLessonMaterial(file: File, title?: string): Promise<LessonMaterial> {
+  const body = new FormData();
+  body.append("file", file);
+  if (title?.trim()) body.append("title", title.trim());
+  return apiRequest<LessonMaterial>("/api/lesson-materials", { method: "POST", body });
+}
+
 export async function createDiagnosticSession(materialId: string, expectedStudents: number): Promise<{ sessionId: string }> {
   return apiRequest<{ sessionId: string }>("/api/diagnostic-sessions", {
     method: "POST",
