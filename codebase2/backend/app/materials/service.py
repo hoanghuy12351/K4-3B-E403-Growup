@@ -13,6 +13,18 @@ class MaterialUploadError(ValueError):
     """Raised when an upload cannot be accepted or parsed safely."""
 
 
+SUPPORTED_MATERIAL_EXTENSIONS = {".pdf", ".pptx"}
+
+
+def validate_material_filename(filename: str | None) -> str:
+    """Return the normalized extension or reject an unsupported lesson file."""
+    safe_filename = Path(filename or "lesson").name
+    extension = Path(safe_filename).suffix.lower()
+    if extension not in SUPPORTED_MATERIAL_EXTENSIONS:
+        raise MaterialUploadError("Only PDF and PPTX lesson files are supported.")
+    return extension
+
+
 def _storage_path(teacher_id: str, material_id: str, extension: str) -> Path:
     root = Path(get_settings().material_storage_dir).resolve()
     path = (root / teacher_id / f"{material_id}{extension}").resolve()
@@ -43,9 +55,7 @@ def parse_material(path: Path, media_type: str, source_id: str) -> list[dict]:
 async def save_and_parse_upload(file: UploadFile, teacher_id: str) -> tuple[str, str, str, str, list[dict]]:
     """Validate, store, and parse a small teacher-owned lesson file."""
     filename = Path(file.filename or "lesson").name
-    extension = Path(filename).suffix.lower()
-    if extension not in {".pdf", ".pptx"}:
-        raise MaterialUploadError("Only PDF and PPTX lesson files are supported.")
+    extension = validate_material_filename(filename)
     content = await file.read()
     if not content or len(content) > get_settings().upload_max_mb * 1024 * 1024:
         raise MaterialUploadError("The uploaded file is empty or exceeds the configured size limit.")

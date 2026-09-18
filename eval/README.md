@@ -44,3 +44,66 @@ kết quả trên bộ 24 ca đã khóa.
 - Chưa chạy trọn 24 ca bằng provider(nhà cung cấp mô hình) thật và chưa chấm tay
   output(đầu ra). Vì vậy **chưa công bố tỷ lệ đạt golden set**.
 - Kết quả thấp hoặc chưa đạt sẽ được giữ nguyên và phân tích; không loại ca lỗi.
+
+## Evaluate Teaching Agent bằng provider thật
+
+Workbook Teaching Agent hiện đã được giảng viên rút xuống **12 testcase cho mỗi
+tính năng**. Bản fixture máy đọc tương ứng nằm tại
+`eval/teaching-agent-cases.json` và gồm:
+
+- 12 ca phân tích yêu cầu giảng viên và sinh checkpoint;
+- 12 ca phân tích phản hồi lớp, gồm cả nhánh đủ và thiếu dữ liệu.
+
+Evaluator dùng trực tiếp `AISettings.from_env` và các provider adapter của
+backend. API key được đọc từ `codebase2/backend/.env`; key không được ghi vào
+fixture, log hoặc report.
+
+### Chuẩn bị môi trường
+
+Từ thư mục gốc repository:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r codebase2\backend\requirements.txt
+```
+
+`AI_MODE` phải khác `deterministic`. `AI_PROVIDER` và cặp key/model tương ứng
+phải được cấu hình trong `codebase2/backend/.env`.
+
+### Chạy
+
+Kiểm tra fixture và cấu hình, không gọi API:
+
+```powershell
+.\eval\run-teaching-agent-eval.ps1 -DryRun
+```
+
+Smoke test chi phí thấp, chỉ gọi hai ca đầu:
+
+```powershell
+.\eval\run-teaching-agent-eval.ps1 -Limit 2
+```
+
+Chạy đủ 24 ca:
+
+```powershell
+.\eval\run-teaching-agent-eval.ps1
+```
+
+Thêm semantic judge bằng cùng provider thật. Chế độ này phát sinh thêm một API
+call cho mỗi output:
+
+```powershell
+.\eval\run-teaching-agent-eval.ps1 -Judge
+```
+
+Có thể lọc theo tính năng hoặc mã ca:
+
+```powershell
+.\eval\run-teaching-agent-eval.ps1 -Feature questions -Case F1-001,F1-005
+.\eval\run-teaching-agent-eval.ps1 -Feature analysis -Case F2-005
+```
+
+Kết quả được ghi vào `eval/results/` dưới dạng JSON đầy đủ và CSV tóm tắt.
+Quality bar giữ nguyên: tổng tỷ lệ đạt tối thiểu 80% và 100% hard constraint
+phải đạt.
