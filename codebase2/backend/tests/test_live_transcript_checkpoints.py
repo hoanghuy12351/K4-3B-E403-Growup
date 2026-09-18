@@ -1,8 +1,10 @@
 """Focused tests for runtime live transcript checkpoint generation."""
 
 import os
+from uuid import uuid4
 
 import pytest
+from fastapi.testclient import TestClient
 
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 
@@ -13,6 +15,7 @@ from app.ai.services.live_transcript_simulator import visible_segments
 from app.ai.services.transcript_ingestion import TranscriptSegment
 from app.diagnostic.repository import InMemoryDiagnosticSessionRepository
 from app.diagnostic.service import DiagnosticSessionService, SessionValidationError
+from app.main import app
 
 
 class FakeProvider:
@@ -138,3 +141,19 @@ def test_generated_question_keeps_student_room_state_private_and_aggregates_answ
     service.submit_response(session.id, joined["participantId"], question["id"], session.sections[0]["section"]["id"], "A")
     result = service.summary(session.id)["sectionResults"][0]
     assert result["correctRate"] == 1
+
+
+def test_live_slide_deck_endpoint_is_teacher_only_and_streams_the_canonical_pdf() -> None:
+    """Ensure the presentation screen uses the existing canonical PDF, not a mock asset."""
+    with TestClient(app) as client:
+        assert client.get("/api/teaching-agent/live-lesson/slides").status_code == 401
+        registered = client.post("/auth/register", json={
+            "name": "Slide Teacher",
+            "email": f"slide-teacher-{uuid4().hex}@example.com",
+            "password": "secure-demo-password",
+        })
+        assert registered.status_code == 201
+        response = client.get("/api/teaching-agent/live-lesson/slides")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/pdf")
+        assert response.content.startswith(b"%PDF")

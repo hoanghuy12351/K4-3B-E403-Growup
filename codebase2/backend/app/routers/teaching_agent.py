@@ -1,13 +1,15 @@
 """Teacher-only endpoints for the fixed, section-scoped checkpoint demo."""
 
 import logging
+from pathlib import Path
 
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 
 from app.ai.services.demo_checkpoint_catalog import DemoCheckpointCatalogError, get_demo_section, load_demo_catalog
-from app.ai.config import AISettings
+from app.ai.config import AISettings, find_repository_root
 from app.ai.llm.errors import LLMAuthenticationError, LLMConfigurationError, LLMMalformedResponseError, LLMProviderError, LLMRateLimitError, LLMTimeoutError, LLMValidationError
 from app.ai.services.demo_slide_analysis import generate_preanalyzed_checkpoints, get_preanalyzed_section
 from app.diagnostic.service import SessionValidationError
@@ -31,6 +33,23 @@ def _configured_model(settings: AISettings | None) -> str:
     if settings is None:
         return "unknown"
     return str(getattr(settings, f"{settings.provider}_model", None) or "unknown")
+
+
+@router.get("/live-lesson/slides")
+def get_live_lesson_slides(teacher: Annotated[Teacher, Depends(current_teacher)]) -> FileResponse:
+    """Stream the canonical slide deck for the lecturer's live presentation view."""
+    del teacher
+    try:
+        lesson = load_demo_catalog()["lesson"]
+        slide_file = lesson["slideFile"]
+        slide_path = (find_repository_root() / str(slide_file)).resolve()
+        data_root = (find_repository_root() / "data").resolve()
+        slide_path.relative_to(data_root)
+    except (DemoCheckpointCatalogError, KeyError, TypeError, ValueError):
+        raise _error(status.HTTP_503_SERVICE_UNAVAILABLE, "DEMO_SLIDES_UNAVAILABLE", "Live lesson slides are unavailable.") from None
+    if not slide_path.is_file():
+        raise _error(status.HTTP_503_SERVICE_UNAVAILABLE, "DEMO_SLIDES_UNAVAILABLE", "Live lesson slides are unavailable.")
+    return FileResponse(slide_path, media_type="application/pdf", filename="ai-llm-foundation.pdf", content_disposition_type="inline")
 
 
 @router.get("/demo")

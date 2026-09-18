@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Alert, Button, Card, Descriptions, Progress, QRCode, Spin, Tag } from "antd";
 import AppLayout from "@/components/Layout/AppLayout";
 import { closeLiveCheckpoint, getDiagnosticSession, getDiagnosticSummary, startDiagnosticSession, triggerLiveCheckpoint, updateLiveState, type DiagnosticSession, type DiagnosticSummary, type LiveCheckpointPlan } from "@/services/diagnostic";
+import { API_URL } from "@/services/api";
 
 const recommendationText = { reteach: "Nên giảng lại ngắn phần này trước khi chuyển tiếp.", clarify: "Nên làm rõ thêm một vài ý trước khi tiếp tục.", continue: "Lớp đang theo kịp, có thể tiếp tục bài học.", insufficient_data: "Chưa đủ phản hồi để kết luận." };
 const recommendationColor = { reteach: "red", clarify: "orange", continue: "green", insufficient_data: "blue" } as const;
@@ -107,6 +108,7 @@ export default function LiveTeachingPage() {
 
   const statusText = generatingPlan ? "Đang tạo câu hỏi từ nội dung vừa giảng..." : openPlan ? "Đang chờ phản hồi" : "Đang nghe bài giảng";
   const transcript = session?.visibleTranscript || [];
+  const slideUrl = `${API_URL}/api/teaching-agent/live-lesson/slides#page=${session?.currentSlide || 1}&view=FitH`;
 
   return <AppLayout>
     <div className="page-heading live-heading"><div><p className="eyebrow">PHÒNG DẠY TRỰC TIẾP</p><h1>{session?.lesson.title || "Đang tải bài giảng"}</h1><p className="muted">Transcript chỉ hiện dần theo nhịp giảng và checkpoint dùng đúng phần nội dung đã xuất hiện.</p></div>{session?.roomCode && <div className="live-room-code"><span>Mã phòng</span><strong>{session.roomCode}</strong></div>}</div>
@@ -114,6 +116,7 @@ export default function LiveTeachingPage() {
     {loading ? <Spin tip="Đang tải phòng học..." /> : session && <div className="live-classroom-grid">
       <section className="teacher-stage"><Card className="live-stage-card">
         <div className="stage-topline"><Tag color={session.status === "live" ? "red" : session.status === "ready" ? "green" : "blue"}>{session.status === "draft" ? "Bản nháp" : session.status === "ready" ? "Sẵn sàng" : "Đang dạy"}</Tag><span>Slide {session.currentSlide || 1} / 29</span></div>
+        <iframe key={session.currentSlide || 1} title={`Slide ${session.currentSlide || 1}`} src={slideUrl} style={{ width: "100%", height: 500, border: "1px solid #e5e5e5", borderRadius: 12, margin: "12px 0" }} />
         <h2>{currentPlan?.sectionTitle || "Đang bắt đầu bài giảng"}</h2><p className="stage-objective">{statusText}</p>
         {currentPlan && <Card size="small" title="Checkpoint hiện tại"><p><strong>Trigger slide {currentPlan.triggerSlide}</strong></p><p className="muted">Yêu cầu giảng viên: {currentPlan.teacherPrompt}</p>{currentPlan.status === "failed" && <Button type="primary" loading={working === currentPlan.id} onClick={() => void generatePlan(currentPlan)}>Thử tạo lại câu hỏi</Button>}{currentPlan.status === "open" && <Button danger loading={working === currentPlan.id} onClick={() => void closePlan(currentPlan)}>Đóng checkpoint</Button>}</Card>}
         <div className="stage-controls">{session.status === "draft" ? <Button type="primary" size="large" loading={working === "start"} onClick={() => void startClassroom()}>Bắt đầu lớp học</Button> : <Button type="primary" size="large" disabled={Boolean(openPlan || generatingPlan) || (session.currentSlide || 1) >= 29} loading={working === "slide"} onClick={() => void advanceSlide()}>Slide tiếp theo</Button>}</div>
