@@ -6,6 +6,31 @@ Trong dữ liệu VLearn của chính khóa K4, có bao nhiêu học viên chủ
 giải thích hoặc làm rõ kiến thức, và dữ liệu hiện tại có đủ tín hiệu để giảng viên
 biết mức hiểu của lớp hay không?
 
+## Tóm tắt bằng chứng chính: khảo sát/phỏng vấn coach
+
+Bằng chứng chính cho pain(vấn đề) của giảng viên đến từ khảo sát/phỏng vấn **7 giảng viên/coach** trong khóa. Kết quả cho thấy **6/7 người** từng phát hiện học viên chưa hiểu muộn: sau khi đã chuyển sang phần tiếp theo, cuối buổi, khi xem/chấm bài sau buổi hoặc qua bài tập kế tiếp.
+
+Các tín hiệu lặp lại trong câu trả lời:
+
+- Học viên im lặng hoặc trả lời "đã hiểu" khi được hỏi trực tiếp.
+- Khi làm bài kiểm tra ngắn, nhiều học viên sai cùng một bước hoặc cùng một khái niệm vừa học.
+- Một số học viên chỉ nhắc lại ví dụ mẫu, chưa tự áp dụng hoặc chưa giải thích được lý do chọn cách làm.
+- Giảng viên khó phân biệt học viên đã hiểu, đang ngại hỏi, mất tập trung hay đã mất kết nối với bài học.
+
+Trích dẫn tiêu biểu đã ẩn danh:
+
+| Mã người trả lời | Trích dẫn |
+|---|---|
+| `S04` | "Câu hỏi dạng 'các em hiểu chưa?' thường chỉ nhận được im lặng hoặc câu trả lời đồng ý nên dễ tạo cảm giác lớp đã theo kịp. Có lần học viên đều gật đầu, nhưng khi tự làm bài thì nhiều em không thể hoàn thành bước đầu tiên." |
+| `S06` | "Tôi chưa có cách kiểm tra ngay trong buổi nên gần như không có dữ liệu để phân biệt học viên đã hiểu hay chỉ đang im lặng. Mức độ tiếp thu thường chỉ được nhận ra muộn qua bài tập nộp sau buổi học." |
+| `S05` | "Một số học viên ngại trả lời công khai vì sợ sai, nên sự im lặng che giấu khá nhiều hiểu nhầm. Trong một buổi học, không ai đặt câu hỏi nhưng khảo sát ẩn danh cuối phần cho thấy gần một nửa lớp chọn sai đáp án." |
+
+Kết luận từ khảo sát: pain chính không phải là học viên không bao giờ hỏi, mà là **giảng viên thiếu một tín hiệu nhanh, có cấu trúc và đủ đại diện ngay trong lúc dạy** để quyết định tiếp tục, làm rõ hay giảng lại.
+
+## Bằng chứng bổ trợ: mining VLearn chatbot log
+
+Phần mining dưới đây không được dùng như bằng chứng trực tiếp rằng giảng viên live thiếu tín hiệu. Nó chỉ bổ trợ cho thấy ở phía học viên có nhu cầu làm rõ kiến thức thật, trong khi log hiện tại gần như không có trường đo mức hiểu có cấu trúc.
+
 ## Nguồn và phạm vi
 
 - Nguồn: `data/vlearn-pack/chatlog/tutor_turns.csv`, bản xuất ngày 15/09/2026.
@@ -56,8 +81,6 @@ không chẩn đoán cá nhân; nó tạo một lượt kiểm tra ngắn và ch
 
 ## Kết luận dùng cho quyết định sản phẩm
 
-Dữ liệu cho thấy nhu cầu làm rõ phổ biến nhưng tín hiệu trực tiếp về mức hiểu của
-cả lớp gần như không có. Lát cắt được chọn là: sau một phần bài học, tạo câu hỏi
-ngắn có nguồn, thu phản hồi ẩn danh theo lớp và đưa bằng chứng để giảng viên quyết
-định tiếp tục, làm rõ hay giảng lại. Đây là công cụ hỗ trợ quyết định, không phải
-công cụ chấm điểm hoặc kết luận năng lực từng học viên.
+Khảo sát/phỏng vấn coach là bằng chứng chính: 6/7 người từng phát hiện lớp chưa hiểu muộn, thường sau khi đã chuyển phần, cuối buổi hoặc khi chấm bài. Chatbot log là bằng chứng bổ trợ: 879/2.555 câu tự gõ có dấu hiệu cần giải thích/làm rõ, nhưng `understanding_level` và `ask_probing_question` chỉ xuất hiện 6/3.097 lượt. Hai nguồn cùng chỉ ra khoảng trống sản phẩm: lớp có hiểu nhầm và nhu cầu làm rõ, nhưng giảng viên thiếu tín hiệu nhanh, có cấu trúc để biết lớp đang kẹt ở đâu trước khi dạy tiếp.
+
+Lát cắt được chọn là: sau một phần bài học, tạo câu hỏi ngắn có nguồn, thu phản hồi ẩn danh theo lớp và đưa bằng chứng để giảng viên quyết định tiếp tục, làm rõ hay giảng lại. Đây là công cụ hỗ trợ quyết định, không phải công cụ chấm điểm hoặc kết luận năng lực từng học viên.
