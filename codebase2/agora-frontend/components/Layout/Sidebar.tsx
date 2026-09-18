@@ -7,7 +7,7 @@ export default function Sidebar() {
     <Link className="brand" href="/dashboard"><span className="brand-mark">G</span>Growup</Link>
     <div className="sidebar-caption">GIẢNG DẠY TRỰC TUYẾN</div>
     <nav aria-label="Điều hướng chính">
-      {[["/dashboard", "Tổng quan"], ["/users", "Người dùng"]].map(([href, label]) =>
+      {[["/dashboard", "Tổng quan"], ["/diagnostic/new", "Kiểm tra bài học"], ["/users", "Người dùng"]].map(([href, label]) =>
         <Link key={href} href={href} className={pathname === href ? "nav-link active" : "nav-link"}
           aria-current={pathname === href ? "page" : undefined}>{label}</Link>)}
     </nav>

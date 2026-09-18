@@ -49,9 +49,12 @@ def create_diagnostic(request: DiagnosticRequest) -> dict[str, Any]:
     except FileNotFoundError:
         logger.warning("AI diagnostic dataset is unavailable.")
         return _service_unavailable("AI_DATA_UNAVAILABLE", "The diagnostic dataset is currently unavailable.")
-    except (LLMConfigurationError, LLMAuthenticationError):
+    except LLMConfigurationError:
         logger.warning("AI diagnostic provider configuration is unavailable.")
-        return _service_unavailable("AI_PROVIDER_UNAVAILABLE", "The configured AI provider is unavailable.")
+        return _service_unavailable("AI_PROVIDER_CONFIGURATION_ERROR", "The configured AI provider requires a valid API key and model configuration.")
+    except LLMAuthenticationError:
+        logger.warning("AI diagnostic provider authentication was rejected.")
+        return _service_unavailable("AI_PROVIDER_AUTHENTICATION_ERROR", "The configured AI provider rejected the server credentials.")
     except LLMTimeoutError:
         logger.warning("AI diagnostic provider timed out.")
         return _bad_gateway("AI_PROVIDER_TIMEOUT", "The AI provider timed out while generating a diagnostic question.", status.HTTP_504_GATEWAY_TIMEOUT)

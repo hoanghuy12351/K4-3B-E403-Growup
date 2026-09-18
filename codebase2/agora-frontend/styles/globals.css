@@ -25,6 +25,11 @@ p { line-height: 1.65; }
 .account-name { font-size: 13px; }
 .page-content { padding: 30px 36px; max-width: 1400px; margin: auto; }
 .demo-alert { margin-bottom: 28px; }
+.diagnostic-alert { margin-bottom: 24px; }
+.diagnostic-stack { width: 100%; }
+.diagnostic-loading { min-height: 45vh; display: grid; place-content: center; gap: 14px; color: #687b76; }
+.student-question-card { max-width: 760px; }
+.option-group .ant-radio-wrapper { white-space: normal; align-items: flex-start; line-height: 1.6; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
 .page-heading h1 { margin-bottom: 8px; }
 .page-heading p:last-child { margin-bottom: 0; }

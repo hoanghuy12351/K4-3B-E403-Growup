@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .ai.config import load_backend_env
 from .routers.diagnostic import router as diagnostic_router
+from .routers.diagnostic_sessions import router as diagnostic_sessions_router
 
 DEFAULT_CORS_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
 
@@ -28,6 +29,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 app.include_router(diagnostic_router, prefix="/api/ai")
+app.include_router(diagnostic_sessions_router, prefix="/api")
 
 
 @app.get("/health")

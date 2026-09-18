@@ -14,7 +14,7 @@ export default function DashboardPage() {
     <Card className="welcome-card"><div className="welcome-content">
       <div><p className="eyebrow">KIỂM TRA MỨC HIỂU</p><h2>Lớp đang theo kịp ở đâu?</h2>
       <p>Thu câu trả lời ngắn, xem hiểu lầm theo khái niệm và quyết định cách dạy tiếp.</p></div>
-      <Link href="/users"><Button type="primary" size="large">Quản lý người dùng</Button></Link>
+      <Link href="/diagnostic/new"><Button type="primary" size="large">Tạo kiểm tra bài học</Button></Link>
     </div></Card>
     <div className="dashboard-grid">
       {[

@@ -9,10 +9,43 @@ from ..client import retry_transient
 from ..errors import LLMAuthenticationError, LLMConfigurationError, LLMMalformedResponseError, LLMProviderError, LLMRateLimitError, LLMTimeoutError
 from ..models import ProviderResult
 
+UNSUPPORTED_STRICT_SCHEMA_KEYWORDS = {
+    "minLength",
+    "maxLength",
+    "pattern",
+    "format",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "multipleOf",
+    "minItems",
+    "maxItems",
+    "uniqueItems",
+}
+
 
 def _usage(response: Any) -> tuple[int | None, int | None, int | None]:
     usage = getattr(response, "usage", None)
     return (getattr(usage, "input_tokens", None), getattr(usage, "output_tokens", None), getattr(usage, "total_tokens", None))
+
+
+def _supports_temperature(model: str | None) -> bool:
+    """Avoid unsupported sampling controls for the GPT-5 model family."""
+    return not str(model or "").lower().startswith("gpt-5")
+
+
+def _openai_strict_schema(value: Any) -> Any:
+    """Remove JSON Schema constraints unsupported by OpenAI strict output mode."""
+    if isinstance(value, list):
+        return [_openai_strict_schema(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _openai_strict_schema(item)
+            for key, item in value.items()
+            if key not in UNSUPPORTED_STRICT_SCHEMA_KEYWORDS
+        }
+    return value
 
 
 def _normalize_error(error: Exception) -> Exception:
@@ -47,15 +80,17 @@ class OpenAIProvider:
         """Make one Responses API request and safely parse its structured text."""
         def request() -> Any:
             try:
-                return self.client.responses.create(
-                    model=self.settings.openai_model,
-                    instructions=system_prompt,
-                    input=user_prompt,
-                    max_output_tokens=self.settings.max_output_tokens,
-                    temperature=self.settings.temperature,
-                    store=False,
-                    text={"format": {"type": "json_schema", "name": "classroom_diagnostic", "schema": schema, "strict": True}},
-                )
+                request_options = {
+                    "model": self.settings.openai_model,
+                    "instructions": system_prompt,
+                    "input": user_prompt,
+                    "max_output_tokens": self.settings.max_output_tokens,
+                    "store": False,
+                    "text": {"format": {"type": "json_schema", "name": "classroom_diagnostic", "schema": _openai_strict_schema(schema), "strict": True}},
+                }
+                if _supports_temperature(self.settings.openai_model):
+                    request_options["temperature"] = self.settings.temperature
+                return self.client.responses.create(**request_options)
             except Exception as error:
                 raise _normalize_error(error) from error
 

@@ -93,5 +93,14 @@ http://localhost:3000; hiện chưa cấu hình gói cài đặt cho ứng dụn
 ## Tài liệu chính thức
 
 - [Next.js: cài đặt](https://nextjs.org/docs/app/getting-started/installation)
+
+## Multi-section diagnostic flow
+
+Set `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000`, start the backend, then open
+`/diagnostic/new`. Select a PDF discovered automatically from backend `data/`, review its
+section questions, and select **Mở phiên cho học viên**. The student route is
+`/diagnostic/{sessionId}/student`; the lecturer report is
+`/diagnostic/{sessionId}/report`. The diagnostic service always calls the backend API;
+the existing mock toggle only controls the starter authentication/user screens.
 - [Ant Design: tích hợp Next.js](https://ant.design/docs/react/use-with-next/)
 

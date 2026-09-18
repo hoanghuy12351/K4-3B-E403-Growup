@@ -10,9 +10,11 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   });
   if (!response.ok) {
     const payload: unknown = await response.json().catch(() => null);
-    const detail = payload && typeof payload === "object" && "detail" in payload
-      ? payload.detail : null;
-    throw new Error(typeof detail === "string" ? detail : `Yêu cầu thất bại (mã ${response.status}).`);
+    const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : null;
+    const detail = record?.detail;
+    const error = record?.error ?? (detail && typeof detail === "object" ? (detail as Record<string, unknown>).error : null);
+    const message = error && typeof error === "object" ? (error as Record<string, unknown>).message : null;
+    throw new Error(typeof message === "string" ? message : typeof detail === "string" ? detail : `Yêu cầu thất bại (mã ${response.status}).`);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

@@ -8,6 +8,20 @@ HISTORICAL_QUESTION_LIMIT = 30
 QUESTION_COUNT = 1
 SEARCH_SCAN_LIMIT = 15_000
 RESPONSE_THRESHOLDS = {"understood": 0.80, "uncertain": 0.60}
+MIN_RESPONSE_COUNT = 5
+MIN_RESPONSE_COVERAGE = 0.30
+LESSON_SECTION_MIN_CHARS = 240
+LESSON_SECTION_MAX_CHARS = 2_400
+LESSON_MAX_SECTIONS = 8
+
+
+def response_coverage_settings() -> tuple[int, float]:
+    """Read prototype coverage thresholds without treating them as educational facts."""
+    minimum_count = int(os.getenv("MIN_RESPONSE_COUNT", str(MIN_RESPONSE_COUNT)))
+    minimum_coverage = float(os.getenv("MIN_RESPONSE_COVERAGE", str(MIN_RESPONSE_COVERAGE)))
+    if minimum_count < 1 or not 0 < minimum_coverage <= 1:
+        raise ValueError("Response coverage settings must be positive and coverage must not exceed one.")
+    return minimum_count, minimum_coverage
 
 
 def _as_bool(value: str | None, default: bool) -> bool:
