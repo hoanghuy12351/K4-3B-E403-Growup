@@ -201,7 +201,7 @@ Nhóm tự khai chưa đạt phần chạy trọn bộ; không loại hoặc s�
 | Setup base project | Võ Huy Hoàng | Cấu trúc frontend/backend, PostgreSQL, FastAPI, Next.js |
 | Prompt + tiêu chí câu hỏi | Bùi Quang Vinh | JSON output, câu hỏi, distractor, tiêu chí chấm |
 | AI backend + validation | Lê Trọng Khánh | Provider thật, fallbackUsed, validate chặn lỗi |
-| UI + demo | Đỗ Hoàng Quân | Luồng giảng viên/học viên, báo cáo, video demo |
+| UI + demo | Đỗ Hoàng Quân | Luồng giảng viên/học viên, slide báo cáo, video demo |
 | Golden set + eval | Bùi Quang Vinh | 24 case, quality bar, pass/fail |
 
 - Willing users(người đồng ý dùng thử), đều là học viên khóa 4:
