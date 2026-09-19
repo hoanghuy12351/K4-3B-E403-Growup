@@ -12,6 +12,9 @@ export interface PresetDemoSection {
   concepts: string[];
   learningObjectives: string[];
   misconceptions: Array<{ id: string; statement: string }>;
+  order?: number;
+  slidePages?: number[];
+  triggerSlide?: number;
 }
 
 export interface PresetDemoCatalog {
@@ -46,6 +49,10 @@ export interface GeneratedQuestion {
   sourceRefs?: Array<{ type: string; id: string }>;
 }
 
+export type TeacherPreviewQuestion = Omit<GeneratedQuestion, "options"> & {
+  options: Array<DiagnosticOption & { correct: boolean }>;
+};
+
 export interface DiagnosticSession {
   sessionId: string;
   roomCode?: string;
@@ -56,6 +63,31 @@ export interface DiagnosticSession {
   activeQuestionId?: string | null;
   activeQuestionIds?: string[];
   createdAt: string;
+  checkpointPlans?: LiveCheckpointPlan[];
+  currentSlide?: number;
+  currentTranscriptRef?: string | null;
+  nextTranscriptRef?: string | null;
+  visibleTranscript?: Array<{ ref: string; text: string }>;
+  checkpointPreviews?: Array<{ planId: string; questions: TeacherPreviewQuestion[] }>;
+}
+
+export interface LiveCheckpointPlan {
+  id: string;
+  sectionId: string;
+  sectionTitle: string;
+  order: number;
+  slidePages: number[];
+  triggerSlide: number;
+  requiredTranscriptRef: string;
+  teacherPrompt: string;
+  status: "planned" | "generating" | "preview" | "open" | "closed" | "failed";
+  questionIds: string[];
+}
+
+export interface CreateLiveSessionRequest {
+  lessonId: string;
+  expectedStudents: number;
+  checkpointSelections: Array<{ sectionId: string; teacherPrompt: string; triggerSlide?: number }>;
 }
 
 export interface RoomJoinResult {
@@ -96,6 +128,8 @@ export interface AgentGeneratedSession {
 
 export interface DiagnosticSummary {
   respondingStudents: number;
+  joinedStudents: number;
+  totalResponses: number;
   expectedStudents: number | null;
   recommendation: "reteach" | "clarify" | "continue" | "insufficient_data";
   reason: string;
@@ -104,6 +138,22 @@ export interface DiagnosticSummary {
     sectionId: string;
     totalResponses: number;
     correctRate: number;
+    recommendation?: "reteach" | "clarify" | "continue" | "insufficient_data";
+    reason?: string;
+    optionDistribution: Array<{
+      optionId: string;
+      text: string;
+      count: number;
+      ratio: number;
+      correct: boolean;
+      misconception?: string | null;
+    }>;
+    aiAnalysis: {
+      overview: string;
+      pattern: string;
+      suggestedAction: string;
+      generatedBy: "ai" | "rules";
+    } | null;
     dominantMisconception: { statement?: string } | null;
   }>;
 }
@@ -297,6 +347,11 @@ function buildMockSummary(session: MockSession): DiagnosticSummary {
       sectionId: section.id,
       totalResponses: responses.length,
       correctRate: responses.length ? correct / responses.length : 0,
+      optionDistribution: question?.options.map(option => {
+        const count = responses.filter(response => response.optionId === option.id).length;
+        return { optionId: option.id, text: option.text, count, ratio: responses.length ? count / responses.length : 0, correct: option.id === session.correctOptions[question.id] };
+      }) ?? [],
+      aiAnalysis: null,
       dominantMisconception: responses.length && correct / responses.length < 0.6 ? { statement: "Nhiều học viên chọn sai ở cùng một khái niệm." } : null,
     };
   });
@@ -311,7 +366,7 @@ function buildMockSummary(session: MockSession): DiagnosticSummary {
       : recommendation === "clarify"
         ? "Lớp có tín hiệu hiểu một phần, nên làm rõ thêm một vài ý."
         : "Phần lớn phản hồi đúng, có thể tiếp tục bài học.";
-  return { respondingStudents: participantIds.size, expectedStudents: session.expectedStudents, recommendation, reason, lecturerDecisionRequired: true, sectionResults };
+  return { respondingStudents: participantIds.size, joinedStudents: Object.keys(session.participants).length, totalResponses, expectedStudents: session.expectedStudents, recommendation, reason, lecturerDecisionRequired: true, sectionResults };
 }
 
 export async function joinRoom(roomCode: string, displayName: string): Promise<RoomJoinResult> {
@@ -366,6 +421,11 @@ export async function getPresetDemoCatalog(): Promise<PresetDemoCatalog> {
   return apiRequest<PresetDemoCatalog>("/api/teaching-agent/demo");
 }
 
+export async function createLiveSession(request: CreateLiveSessionRequest): Promise<{ sessionId: string; roomCode: string; status: string; checkpointPlans: LiveCheckpointPlan[] }> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp cần NEXT_PUBLIC_USE_MOCK=false và backend có LLM được cấu hình.");
+  return apiRequest("/api/teaching-agent/live-session", { method: "POST", body: JSON.stringify(request) });
+}
+
 export async function createPresetDemoCheckpoint(sectionId: string, expectedStudents: number): Promise<{ sessionId: string }> {
   if (USE_MOCK) return { sessionId: buildMockSession(sectionId, expectedStudents).sessionId };
   return apiRequest<{ sessionId: string }>("/api/teaching-agent/demo/checkpoints", {
@@ -399,6 +459,31 @@ export async function generateAgentCheckpoints(request: AgentGenerateRequest): P
 export async function getDiagnosticSession(sessionId: string): Promise<DiagnosticSession> {
   if (USE_MOCK) return getMockSession(sessionId);
   return apiRequest<DiagnosticSession>(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}`);
+}
+
+export async function updateLiveState(sessionId: string, state: { currentSlide: number; currentTranscriptRef: string }): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/live-state`, { method: "POST", body: JSON.stringify(state) });
+}
+
+export async function triggerLiveCheckpoint(sessionId: string, planId: string): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoints/${encodeURIComponent(planId)}/trigger`, { method: "POST", timeoutMs: 90000 });
+}
+
+export async function openLiveCheckpoint(sessionId: string, planId: string): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoints/${encodeURIComponent(planId)}/open`, { method: "POST" });
+}
+
+export async function regenerateLiveCheckpoint(sessionId: string, planId: string, teacherPrompt: string): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoints/${encodeURIComponent(planId)}/regenerate`, { method: "POST", timeoutMs: 90000, body: JSON.stringify({ teacherPrompt }) });
+}
+
+export async function closeLiveCheckpoint(sessionId: string, planId: string): Promise<void> {
+  if (USE_MOCK) throw new Error("Luồng lớp học trực tiếp không hỗ trợ mock mode.");
+  await apiRequest(`/api/diagnostic-sessions/${encodeURIComponent(sessionId)}/checkpoints/${encodeURIComponent(planId)}/close`, { method: "POST" });
 }
 
 export async function startDiagnosticSession(sessionId: string): Promise<{ sessionId: string; roomCode: string; status: string }> {

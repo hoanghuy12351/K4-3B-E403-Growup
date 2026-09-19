@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -17,7 +17,7 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { if (ready && user) router.replace("/dashboard"); }, [ready, user, router]);
-  if (!ready || user) return <Loading />;
+  if (ready && user) return <Loading />;
 
   return <main className="login-page auth-playground">
     <section className="login-story register-story">

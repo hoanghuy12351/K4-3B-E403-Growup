@@ -4,6 +4,8 @@
 - Loại: **Tính năng mới**
 - Bản chốt CP4: **18/09/2026, trước 21:00**
 - Quality bar(ngưỡng đạt) được khóa tại bản chốt này.
+- Kết quả eval mới nhất, 19/09/2026: **20/24 ca pass (83,33%)**, nhưng
+  **chưa đạt quality bar** vì hard constraint chỉ pass **21/24 ca (87,5%)**.
 
 ## §1. User & Job
 
@@ -88,7 +90,9 @@ giảng lại**.
 - AI thật: có adapter(bộ kết nối) OpenAI/Gemini/NVIDIA phía server; chỉ khi
   `AI_MODE=llm`, có khóa hợp lệ và metadata ghi `fallbackUsed=false` mới được tính
   là lần gọi thật.
-- Chưa xác minh: repo chưa có trace(nhật ký) chạy bằng khóa thật cho bản này.
+- Đã xác minh provider thật: lượt eval ngày 19/09/2026 chạy với
+  Gemini `gemini-3.5-flash-lite`; báo cáo ghi provider, model, latency, output và
+  kết quả từng ca, không ghi API key.
 - Mô phỏng: nội dung hai PDF đang được ánh xạ sang block mẫu ổn định thay vì trích
   PDF thật; chế độ deterministic(tất định) không phải AI thật.
 - Lưu trữ: phiên và phản hồi nằm trong memory(bộ nhớ tiến trình), mất khi restart.
@@ -170,10 +174,13 @@ nghĩa chấm trước khi chạy tiếp.
 
 ### Golden set
 
-- File: [`eval/golden-set.csv`](eval/golden-set.csv).
-- **24 ca:** 10 thường từ chatlog thật, 4 nguồn sự thật, 4 mơ hồ/thiếu dữ liệu,
-  3 ngoài phạm vi và 3 đặc thù giáo dục.
-- Có ít nhất 2 ca cho mỗi lớp khó; 10 ca được phát triển từ mã lượt thật.
+- Golden set CP4 gốc: [`eval/golden-set.csv`](eval/golden-set.csv), gồm 24 ca
+  theo bốn lớp rủi ro.
+- Fixture chạy tự động hiện tại:
+  [`eval/teaching-agent-cases.json`](eval/teaching-agent-cases.json), được đồng bộ
+  từ workbook 24 testcase.
+- **24 ca tự động:** 12 ca sinh câu hỏi (`F1-001..F1-012`) và 12 ca
+  phân tích phản hồi lớp (`F2-001..F2-012`).
 
 ### Quality bar đã khóa tại CP4
 
@@ -184,13 +191,17 @@ Ngưỡng này giữ nguyên sau CP4. Ca bổ sung phải báo riêng, không th
 
 ### Kết quả hiện có
 
-| Lượt                           | Phạm vi             | Kết quả               | Ghi chú                                            |
-| ------------------------------ | ------------------- | --------------------- | -------------------------------------------------- |
-| Unit test(kiểm thử đơn vị) CP4 | Logic AI/validation | **19 test pass**      | Không phải tỷ lệ golden set                        |
-| HTTP test                      | 2 module            | **Chưa chạy**         | Môi trường hiện tại thiếu FastAPI                  |
-| Golden set với provider thật   | 24 ca               | **Chưa chạy trọn bộ** | Không công bố % khi chưa có trace thật và chấm tay |
+| Lượt | Phạm vi | Kết quả | Ghi chú |
+| --- | --- | --- | --- |
+| Regression test sau khi sửa evaluator | Eval + backend | **33 test pass** | Có 2 warning deprecation từ dependency, không có test fail |
+| Provider eval 19/09/2026 04:22 (+07) | 24 ca, Gemini `gemini-3.5-flash-lite` | **20/24 pass (83,33%)** | Judge ngữ nghĩa tắt; báo cáo [JSON](eval/results/teaching-agent-eval-20260919-042242.json) và [CSV](eval/results/teaching-agent-eval-20260919-042242.csv) |
+| Hard constraints | 24 ca | **21/24 pass (87,5%)** | Chưa đạt yêu cầu 100%, nên `qualityBarPassed=false` |
+| Sinh câu hỏi | 12 ca | **9/12 pass (75%)** | `F1-005` validation error; `F1-010`, `F1-012` malformed response |
+| Phân tích phản hồi lớp | 12 ca | **11/12 pass (91,67%)** | `F2-012` pass hard constraints nhưng fail `action_aligned` |
 
-Nhóm tự khai chưa đạt phần chạy trọn bộ; không loại hoặc sửa ca lỗi sau khi chạy.
+Lượt chạy đã đạt ngưỡng tỷ lệ ≥80%, nhưng **chưa đạt quality bar đã
+khóa** vì còn ba ca không qua hard constraints. Bốn ca fail được giữ
+nguyên trong báo cáo; không loại khỏi mẫu số 24.
 
 ## §8. Phân công và kế hoạch
 
@@ -219,13 +230,18 @@ Nhóm tự khai chưa đạt phần chạy trọn bộ; không loại hoặc s�
 | CP2 · 17/09 | Chốt luồng chọn khái niệm → duyệt câu → học viên trả lời → báo cáo → giảng viên quyết định     | Cần chứng minh luồng end-to-end(đầu cuối) trước khi nối AI          |
 | CP3 · 18/09 | Bổ sung pipeline AI, provider phía server, validation nguồn và API phiên chẩn đoán             | Đưa AI vào quyết định trung tâm và giữ dữ liệu nhạy cảm phía server |
 | CP4 · 18/09 | Chốt evidence chuẩn B, 4 lớp/12 rủi ro, 24 ca golden set và quality bar 80% + hard constraints | Đặt chuẩn đạt trước khi chạy/chọn kết quả                           |
+| Eval · 19/09 | Chạy 24 ca với Gemini; 20/24 pass, hard constraints 21/24, quality bar chưa đạt | Công bố kết quả thật và giữ nguyên bốn ca fail |
 
 ## Phần chưa hoàn thành được tự khai tại CP4
 
-1. Chưa có trace xác nhận một lượt provider thật với `fallbackUsed=false` trong repo.
-2. Chưa chạy và chấm trọn 24 ca golden set; chưa có tỷ lệ đạt hợp lệ.
-3. Hai module HTTP test chưa chạy trong môi trường hiện tại vì thiếu FastAPI.
-4. PDF hiện ánh xạ sang nội dung mẫu; chưa trích xuất nội dung PDF thật.
+1. Quality bar chưa đạt: ba ca sinh câu hỏi chưa qua hard constraints.
+2. Chưa bật semantic judge(chấm ngữ nghĩa) và chưa có biên bản hai
+   người chấm độc lập cho 5 output đầu.
+3. Eval tự động hiện kiểm tra generation từ section đã phân tích và phân
+   tích kết quả tổng hợp; chưa chứng minh toàn bộ upload → phân loại →
+   aggregate raw response trong cùng một lượt end-to-end.
+4. PDF trong luồng demo hiện ánh xạ sang nội dung mẫu; chưa trích xuất
+   nội dung PDF thật trong luồng đó.
 5. Giảng viên mới xem draft, chưa sửa trực tiếp câu hỏi/đáp án trên UI.
 6. Phiên và phản hồi lưu trong memory, mất khi backend restart.
 7. Đã xác nhận ba willing users; chưa có feedback log từ vòng dùng thử thực tế.

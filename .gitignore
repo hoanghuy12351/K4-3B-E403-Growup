@@ -7,3 +7,4 @@ node_modules/
 /data/
 codebase2/backend/storage/
 codebase2/backend/*.db
+eval/results/

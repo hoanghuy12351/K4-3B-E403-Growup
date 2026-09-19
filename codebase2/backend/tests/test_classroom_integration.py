@@ -5,7 +5,7 @@ from app.diagnostic.repository import InMemoryDiagnosticSessionRepository
 from app.diagnostic.service import DiagnosticSessionService
 
 
-def test_join_open_submit_classify_and_summarize(monkeypatch) -> None:
+def test_join_open_submit_and_summarize_multiple_choice(monkeypatch) -> None:
     """An anonymous student can answer only the teacher's open checkpoint."""
     monkeypatch.setenv("AI_MODE", "deterministic")
     repository = InMemoryDiagnosticSessionRepository()
@@ -36,17 +36,15 @@ def test_join_open_submit_classify_and_summarize(monkeypatch) -> None:
     assert service.room_state("GX-7K2P", joined["participantId"])["activeQuestion"] is None
 
     service.open_checkpoint(session.id, "Q-123")
-    response = service.submit_response(
-        session.id, joined["participantId"], "Q-123", "section-1", "A",
-        "Gradient descent iteratively updates parameters.",
-    )
+    response = service.submit_response(session.id, joined["participantId"], "Q-123", "section-1", "A")
     assert response.correct is True
-    assert response.classification and response.classification["label"] == "understood"
+    assert response.classification is None
 
     summary = service.summary(session.id)
     assert summary["respondingStudents"] == 1
     assert summary["sectionResults"][0]["correctRate"] == 1.0
-    assert summary["sectionResults"][0]["understandingDistribution"]["understood"] == 1
+    assert summary["sectionResults"][0]["scoringMethod"] == "answer_key"
+    assert summary["sectionResults"][0]["optionDistribution"][0]["count"] == 1
 
 
 def test_open_all_checkpoints_exposes_every_question_to_a_joined_student() -> None:

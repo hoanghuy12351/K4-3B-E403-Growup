@@ -8,7 +8,13 @@ from app.ai.config import AISettings
 from app.ai.services.lesson_diagnostic_service import generate_lesson_diagnostic
 from app.ai.services.material_ingestion import ingest_material, resolve_available_material
 from app.ai.services.answer_classification_service import classify_explanation
+from app.ai.services.class_response_analysis import analyze_aggregate_responses
 from app.ai.services.demo_checkpoint_catalog import build_demo_session_sections, get_demo_section, load_demo_catalog
+from app.ai.services.demo_slide_analysis import get_preanalyzed_section
+from app.ai.services.live_checkpoint_generation import generate_live_checkpoint_batch
+from app.ai.services.live_transcript_simulator import load_live_transcript_segments, transcript_positions, validate_live_cursor, visible_segments
+from app.ai.services.slide_evidence import load_slide_evidence
+from app.ai.config import find_repository_root
 from app.domain.classification import ClassificationDecision, rubric_from_diagnostic
 
 from .aggregation import build_class_summary
@@ -106,6 +112,195 @@ class DiagnosticSessionService:
             expected_students=expected_students,
         ))
 
+    def create_live_session(self, *, teacher_id: str, lesson_id: str, selections: list[dict[str, Any]], expected_students: int | None) -> DiagnosticSession:
+        """Persist an ordered live plan without making any LLM request."""
+        catalog = load_demo_catalog()
+        lesson = catalog.get("lesson")
+        if not isinstance(lesson, dict) or lesson.get("id") != lesson_id:
+            raise SessionValidationError("The requested demo lesson was not found.")
+        seen: set[str] = set()
+        plans: list[dict[str, Any]] = []
+        for selection in selections:
+            section_id = str(selection.get("sectionId") or "")
+            if section_id in seen:
+                raise SessionValidationError("A section may only be selected once.")
+            seen.add(section_id)
+            try:
+                section = get_demo_section(section_id)
+            except KeyError as error:
+                raise SessionValidationError("The requested checkpoint section was not found.") from error
+            pages = section.get("slidePages")
+            refs = section.get("transcriptRefs")
+            if not isinstance(pages, list) or not pages or not isinstance(refs, list) or not refs:
+                raise SessionValidationError("Checkpoint source metadata is invalid.")
+            trigger_slide = selection.get("triggerSlide") or max(pages)
+            if trigger_slide not in pages:
+                raise SessionValidationError("The trigger slide must belong to its selected section.")
+            teacher_prompt = str(selection.get("teacherPrompt") or "").strip()
+            if not teacher_prompt:
+                raise SessionValidationError("A lecturer prompt is required for every checkpoint.")
+            plans.append({
+                "id": f"cp-{section_id}",
+                "sectionId": section_id,
+                "sectionTitle": section["title"],
+                "order": section["order"],
+                "slidePages": pages,
+                "triggerSlide": trigger_slide,
+                "requiredTranscriptRef": refs[-1],
+                "teacherPrompt": teacher_prompt,
+                "status": "planned",
+                "questionIds": [],
+            })
+        plans.sort(key=lambda plan: int(plan["order"]))
+        return self.repository.create_session(DiagnosticSession(
+            id=str(uuid4()),
+            teacher_id=teacher_id,
+            room_code=self._room_code(),
+            lesson={
+                "id": lesson["id"], "materialId": lesson["id"], "title": lesson["title"], "sourceId": lesson["id"],
+                "contentMode": "live_transcript_demo", "slideSource": lesson["slideFile"], "transcriptSource": lesson["transcriptFile"],
+            },
+            sections=[],
+            expected_students=expected_students,
+            checkpoint_plans=plans,
+        ))
+
+    def update_live_state(self, session_id: str, *, current_slide: int, current_transcript_ref: str) -> DiagnosticSession:
+        """Store validated, monotonic presenter progress without trusting transcript text."""
+        session = self.get_session(session_id)
+        if session.lesson.get("contentMode") != "live_transcript_demo":
+            raise SessionValidationError("This session does not use the live transcript flow.")
+        if current_slide < session.current_slide:
+            raise SessionValidationError("The live slide cursor cannot move backwards.")
+        catalog = load_demo_catalog()
+        sections = catalog.get("sections")
+        if not isinstance(sections, list):
+            raise SessionValidationError("Live lesson metadata is unavailable.")
+        all_pages = [page for section in sections if isinstance(section, dict) for page in section.get("slidePages", []) if isinstance(page, int)]
+        if current_slide < 1 or current_slide > max(all_pages, default=0):
+            raise SessionValidationError("The current slide is not part of the demo lesson.")
+        segments = load_live_transcript_segments()
+        positions = transcript_positions(segments)
+        validate_live_cursor(segments, previous_ref=session.current_transcript_ref, next_ref=current_transcript_ref)
+        eligible = [section for section in sections if isinstance(section, dict) and current_slide <= max(section.get("slidePages") or [0])]
+        max_ref = eligible[0].get("transcriptRefs", [])[-1] if eligible else segments[-1].ref
+        if not isinstance(max_ref, str) or positions[current_transcript_ref] > positions[max_ref]:
+            raise SessionValidationError("The transcript cursor is ahead of the current slide.")
+        session.current_slide = current_slide
+        session.current_transcript_ref = current_transcript_ref
+        return session
+
+    def trigger_live_checkpoint(self, session_id: str, plan_id: str, *, settings: AISettings, provider: Any = None) -> tuple[DiagnosticSession, dict[str, Any], bool]:
+        """Generate one checkpoint at its reached boundary and atomically expose valid questions."""
+        session = self.get_session(session_id)
+        if session.lesson.get("contentMode") != "live_transcript_demo":
+            raise SessionValidationError("This session does not use the live checkpoint flow.")
+        plan = next((item for item in session.checkpoint_plans if item["id"] == plan_id), None)
+        if plan is None:
+            raise SessionValidationError("The checkpoint plan does not belong to this session.")
+        if plan["status"] in {"generating", "preview", "open", "closed"}:
+            return session, plan, False
+        if session.current_slide < plan["triggerSlide"] or session.current_transcript_ref is None:
+            raise SessionValidationError("This checkpoint has not been reached yet.")
+        segments = load_live_transcript_segments()
+        positions = transcript_positions(segments)
+        if positions[session.current_transcript_ref] < positions[plan["requiredTranscriptRef"]]:
+            raise SessionValidationError("The required lecture transcript has not been heard yet.")
+        earlier = [item for item in session.checkpoint_plans if item["order"] < plan["order"]]
+        if any(item["status"] in {"planned", "generating", "preview", "open"} for item in earlier):
+            raise SessionValidationError("Finish earlier checkpoints before opening the next one.")
+        plan["status"] = "generating"
+        try:
+            analysis = get_preanalyzed_section(str(plan["sectionId"]))
+            heard = visible_segments(segments, session.current_transcript_ref)
+            slide_path = (find_repository_root() / str(session.lesson["slideSource"])).resolve()
+            catalog = load_demo_catalog()
+            catalog_sections = catalog.get("sections")
+            pages = sorted({
+                page
+                for item in catalog_sections if isinstance(item, dict)
+                for page in item.get("slidePages", [])
+                if isinstance(page, int) and page <= session.current_slide
+            }) if isinstance(catalog_sections, list) else []
+            if not pages:
+                raise SessionValidationError("No covered slide evidence is available for this checkpoint.")
+            slides = load_slide_evidence(slide_path, lesson_id=str(session.lesson["id"]), page_numbers=pages)
+            analysis = {
+                **analysis,
+                "allowedSourceRefs": [
+                    *[{"type": "pdf_page", "id": str(item["ref"])} for item in slides],
+                    *[{"type": "transcript", "id": item.ref} for item in heard],
+                ],
+            }
+            batch, generation = generate_live_checkpoint_batch(
+                teacher_prompt=str(plan["teacherPrompt"]), current_slide=session.current_slide,
+                section={"id": plan["sectionId"], "title": plan["sectionTitle"], "triggerSlide": plan["triggerSlide"]},
+                slide_evidence=slides, transcript_evidence=heard, analysis=analysis, settings=settings, provider=provider,
+            )
+            new_sections = []
+            for index, question in enumerate(batch.questions, start=1):
+                question_data = question.model_dump()
+                question_id = f"{plan['id']}-q{index:02d}-{uuid4().hex[:8]}"
+                section_id = f"{plan['id']}-section-{index:02d}"
+                question_data["id"] = question_id
+                new_sections.append({
+                    "sectionId": section_id,
+                    "section": {"id": section_id, "originalSectionId": plan["sectionId"], "title": f"{plan['sectionTitle']} — Câu {index}", "order": int(plan["order"]) * 100 + index, "sourceRefs": analysis["allowedSourceRefs"]},
+                    "concepts": analysis["concepts"], "learningObjectives": analysis["learningObjectives"], "misconceptions": analysis["misconceptions"],
+                    "historicalEvidence": {"matchedQuestions": 0}, "question": question_data, "generation": generation,
+                })
+            session.sections.extend(new_sections)
+            plan["questionIds"] = [item["question"]["id"] for item in new_sections]
+            plan["status"] = "preview"
+            session.status = "live"
+            session.active_question_ids = []
+            session.active_question_id = None
+            return session, plan, True
+        except Exception:
+            plan["status"] = "failed"
+            plan["questionIds"] = []
+            raise
+
+    def open_live_checkpoint(self, session_id: str, plan_id: str) -> DiagnosticSession:
+        """Expose a lecturer-approved preview to students through existing room polling."""
+        session = self.get_session(session_id)
+        plan = next((item for item in session.checkpoint_plans if item["id"] == plan_id), None)
+        if plan is None or plan["status"] != "preview" or not plan["questionIds"]:
+            raise SessionValidationError("The requested checkpoint preview is not ready to open.")
+        session.status = "live"
+        session.active_question_ids = list(plan["questionIds"])
+        session.active_question_id = session.active_question_ids[0]
+        plan["status"] = "open"
+        return session
+
+    def regenerate_live_checkpoint(self, session_id: str, plan_id: str, *, teacher_prompt: str, settings: AISettings, provider: Any = None) -> tuple[DiagnosticSession, dict[str, Any], bool]:
+        """Replace a private preview with a new real-provider result using lecturer feedback."""
+        session = self.get_session(session_id)
+        plan = next((item for item in session.checkpoint_plans if item["id"] == plan_id), None)
+        if plan is None or plan["status"] not in {"preview", "failed"}:
+            raise SessionValidationError("Only a private or failed checkpoint can be generated again.")
+        stale_ids = set(plan["questionIds"])
+        session.sections = [item for item in session.sections if item["question"]["id"] not in stale_ids]
+        session.responses = [item for item in session.responses if item.question_id not in stale_ids]
+        session.active_question_ids = [item for item in session.active_question_ids if item not in stale_ids]
+        session.active_question_id = session.active_question_ids[0] if session.active_question_ids else None
+        plan["questionIds"] = []
+        plan["teacherPrompt"] = teacher_prompt
+        plan["status"] = "planned"
+        return self.trigger_live_checkpoint(session_id, plan_id, settings=settings, provider=provider)
+
+    def close_live_checkpoint(self, session_id: str, plan_id: str) -> DiagnosticSession:
+        """Close all questions produced by one live plan before resuming the lesson."""
+        session = self.get_session(session_id)
+        plan = next((item for item in session.checkpoint_plans if item["id"] == plan_id), None)
+        if plan is None or plan["status"] != "open":
+            raise SessionValidationError("The requested live checkpoint is not open.")
+        ids = set(plan["questionIds"])
+        session.active_question_ids = [item for item in session.active_question_ids if item not in ids]
+        session.active_question_id = session.active_question_ids[0] if session.active_question_ids else None
+        plan["status"] = "closed"
+        return session
+
     def _room_code(self) -> str:
         """Generate a short public code while keeping the UUID internal."""
         alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -189,20 +384,26 @@ class DiagnosticSessionService:
         session.active_question_ids = question_ids
         return session
 
-    def close_checkpoint(self, session_id: str, question_id: str) -> DiagnosticSession:
-        """Hide the active checkpoint while leaving the classroom live."""
+    def close_checkpoint(self, session_id: str, question_id: str, settings: AISettings | None = None) -> DiagnosticSession:
+        """Hide a checkpoint and synthesize its aggregate class result once."""
         session = self.get_session(session_id)
         if question_id not in session.active_question_ids:
             raise SessionValidationError("The requested checkpoint is not open.")
         session.active_question_ids = [item for item in session.active_question_ids if item != question_id]
         session.active_question_id = session.active_question_ids[0] if session.active_question_ids else None
+        if settings is not None:
+            self.analyze_checkpoint(session_id, question_id, settings)
         return session
 
-    def close_all_checkpoints(self, session_id: str) -> DiagnosticSession:
+    def close_all_checkpoints(self, session_id: str, settings: AISettings | None = None) -> DiagnosticSession:
         """Hide every checkpoint while preserving all submitted responses."""
         session = self.get_session(session_id)
+        question_ids = list(session.active_question_ids)
         session.active_question_id = None
         session.active_question_ids = []
+        if settings is not None:
+            for question_id in question_ids:
+                self.analyze_checkpoint(session_id, question_id, settings)
         return session
 
     def submit_response(self, session_id: str, participant_id: str, question_id: str, section_id: str, option_id: str, explanation: str | None = None) -> StudentResponse:
@@ -238,7 +439,20 @@ class DiagnosticSessionService:
             correct=bool(selected_option.get("correct")),
             classification=classification,
         )
+        session.analyses.pop(question_id, None)
         return self.repository.save_response(response)
+
+    def analyze_checkpoint(self, session_id: str, question_id: str, settings: AISettings) -> dict[str, str]:
+        """Analyze only anonymous aggregates and cache the result until answers change."""
+        session = self.get_session(session_id)
+        section_data = next((item for item in session.sections if item["question"]["id"] == question_id), None)
+        if section_data is None:
+            raise SessionValidationError("The question does not belong to this diagnostic session.")
+        summary = build_class_summary(session)
+        section_result = next(item for item in summary["sectionResults"] if item["sectionId"] == section_data["section"]["id"])
+        analysis = analyze_aggregate_responses(question=section_data["question"], section_result=section_result, settings=settings)
+        session.analyses[question_id] = analysis
+        return analysis
 
     @staticmethod
     def _preset_classification(question_section: dict[str, Any], option: dict[str, Any]) -> ClassificationDecision:
@@ -254,6 +468,38 @@ class DiagnosticSessionService:
     def summary(self, session_id: str) -> dict[str, Any]:
         """Build a non-identifying lecturer summary from the stored session responses."""
         return build_class_summary(self.get_session(session_id))
+
+    def teacher_view(self, session: DiagnosticSession) -> dict[str, Any]:
+        """Return lecturer controls plus only the transcript prefix already revealed."""
+        payload = self.student_view(session)
+        payload.update({
+            "checkpointPlans": session.checkpoint_plans,
+            "currentSlide": session.current_slide,
+            "currentTranscriptRef": session.current_transcript_ref,
+            "visibleTranscript": [{"ref": item.ref, "text": item.text} for item in visible_segments(load_live_transcript_segments(), session.current_transcript_ref)] if session.lesson.get("contentMode") == "live_transcript_demo" else [],
+        })
+        payload["checkpointPreviews"] = [
+            {
+                "planId": plan["id"],
+                "questions": [
+                    {**item["question"], "sectionId": item["section"]["id"]}
+                    for item in session.sections
+                    if item["question"]["id"] in set(plan["questionIds"])
+                ],
+            }
+            for plan in session.checkpoint_plans
+            if plan["status"] in {"preview", "open", "closed"}
+        ]
+        if session.lesson.get("contentMode") == "live_transcript_demo":
+            segments = load_live_transcript_segments()
+            positions = transcript_positions(segments)
+            next_index = positions[session.current_transcript_ref] + 1 if session.current_transcript_ref else 0
+            catalog = load_demo_catalog()
+            catalog_sections = catalog.get("sections")
+            eligible = [item for item in catalog_sections if isinstance(item, dict) and session.current_slide <= max(item.get("slidePages") or [0])] if isinstance(catalog_sections, list) else []
+            max_ref = eligible[0].get("transcriptRefs", [])[-1] if eligible else segments[-1].ref
+            payload["nextTranscriptRef"] = segments[next_index].ref if next_index < len(segments) and positions[segments[next_index].ref] <= positions[max_ref] else None
+        return payload
 
     @staticmethod
     def student_view(session: DiagnosticSession) -> dict[str, Any]:
